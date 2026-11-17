@@ -1,0 +1,25 @@
+bin
+dist
+tools
+.idea
+
+# 前端
+webui/.idea
+webui/node_modules
+webui/dist
+
+# 后端
+src/bin
+src/obj
+src/wwwroot
+src/uploads
+src/certs
+src/logs
+src/*.db
+
+# 后端单元测试
+tests/atlas.Tests/bin
+tests/atlas.Tests/obj
+
+# 打包渲染与日志目录
+.build/

@@ -1,0 +1,8 @@
+Package: atlas
+Version: @VERSION@
+Section: utils
+Priority: optional
+Architecture: @DEB_ARCH@
+Maintainer: Mrkinte <marjin@yeah.net>
+Depends: libc6
+Description: 一款简单、易用的个人NAS导航页

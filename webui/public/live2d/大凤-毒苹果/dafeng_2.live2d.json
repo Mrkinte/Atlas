@@ -1,0 +1,72 @@
+{
+  "format": "atlas-live2d-manifest",
+  "version": 1,
+  "name": "dafeng_2",
+  "motions": [
+    {
+      "id": "login",
+      "name": "登录",
+      "group": "login",
+      "file": "motions/login.motion3.json"
+    },
+    {
+      "id": "idle",
+      "name": "待机",
+      "group": "idle",
+      "file": "motions/idle.motion3.json"
+    }
+  ],
+  "motionGroups": [
+    {
+      "id": "事件",
+      "name": "事件",
+      "motions": ["login"]
+    },
+    {
+      "id": "待机",
+      "name": "待机",
+      "motions": ["idle"]
+    }
+  ],
+  "expressions": [],
+  "wardrobe": [
+    {
+      "id": "ggxtmd",
+      "name": "高跟鞋",
+      "parameter": "ggxtmd",
+      "options": [
+        {
+          "id": "高跟鞋",
+          "name": "高跟鞋",
+          "value": 0.0
+        },
+        {
+          "id": "高跟鞋（无）",
+          "name": "高跟鞋（无）",
+          "value": 1.0
+        }
+      ]
+    }
+  ],
+  "defaults": {
+    "wardrobe": {},
+    "entryMotion": "idle"
+  },
+  "excluded": {
+    "motions": [
+      "complete|motions/complete.motion3.json",
+      "effect|motions/effect.motion3.json",
+      "home|motions/home.motion3.json",
+      "mail|motions/mail.motion3.json",
+      "main_1|motions/main_1.motion3.json",
+      "main_2|motions/main_2.motion3.json",
+      "main_3|motions/main_3.motion3.json",
+      "mission_complete|motions/mission_complete.motion3.json",
+      "mission|motions/mission.motion3.json",
+      "touch_body|motions/touch_body.motion3.json",
+      "touch_head|motions/touch_head.motion3.json",
+      "touch_special|motions/touch_special.motion3.json",
+      "wedding|motions/wedding.motion3.json"
+    ]
+  }
+}

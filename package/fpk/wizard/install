@@ -1,0 +1,20 @@
+[
+  {
+    "items": [
+      {
+        "field": "wizard_port",
+        "initValue": "8521",
+        "label": "端口",
+        "rules": [
+          {
+            "max": 65535,
+            "message": "请设置访问端口",
+            "min": 1
+          }
+        ],
+        "type": "text"
+      }
+    ],
+    "stepTitle": "端口设置"
+  }
+]

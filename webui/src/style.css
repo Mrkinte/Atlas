@@ -1,0 +1,58 @@
+:root {
+  --editor-max-width: 640px;
+  --border-radius: 8px;
+}
+
+/* 模型加载完成前库才给舞台写定位样式，此前静态节点会占一行高度撑出页面滚动条 */
+#oml2d-stage {
+  position: fixed;
+  width: 0;
+  height: 0;
+}
+
+/* 网站背景图：固定在最底层，模糊时由 App.vue 向外扩展避免边缘渐隐 */
+.app-background {
+  position: fixed;
+  z-index: -1;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+/* 遮罩，强度由设置项控制，避免背景图影响前景文字可读性 */
+.app-background::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, var(--background-mask-opacity, 0.35));
+}
+
+.app-background--light::after {
+  background: rgba(255, 255, 255, var(--background-mask-opacity, 0.3));
+}
+
+/* 有背景图时让应用容器透明，露出底层背景 */
+html.has-background body,
+html.has-background #app,
+html.has-background .main-shell,
+html.has-background .n-layout,
+html.has-background .n-layout-header,
+html.has-background .n-layout-content,
+html.has-background .n-layout-scroll-container {
+  background-color: transparent;
+}
+
+/* 有背景图时设置页侧边栏透明，与背景视觉统一 */
+html.has-background .n-layout-sider {
+  background-color: transparent;
+}
+
+/* 编辑模式：禁用下拉刷新与侧滑返回等滚动手势，避免和卡片拖拽冲突 */
+html.grid-editing,
+html.grid-editing body,
+html.grid-editing .n-layout,
+html.grid-editing .n-layout-content,
+html.grid-editing .n-layout-scroll-container {
+  overscroll-behavior: none;
+}

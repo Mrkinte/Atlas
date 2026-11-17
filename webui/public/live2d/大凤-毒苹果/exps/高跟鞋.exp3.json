@@ -1,0 +1,15 @@
+{
+  "Type": "Live2D Expression",
+  "Parameters": [
+    {
+      "Id": "ggxtmd",
+      "Value": 0.0,
+      "Blend": "Add"
+    }
+  ],
+  "FadeInTime": 0.0,
+  "FadeOutTime": 0.0,
+  "Meta": {
+    "studioKind": "wardrobe"
+  }
+}

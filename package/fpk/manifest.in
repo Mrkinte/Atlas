@@ -1,0 +1,16 @@
+appname                    = atlas-fnos
+version                    = @VERSION@
+display_name               = Atlas
+platform                   = @FPK_PLATFORM@
+source                     = thirdparty
+maintainer                 = Mrkinte
+maintainer_url             = https://mrkinte.github.io/atlas-docs
+distributor                = Mrkinte
+distributor_url            = https://mrkinte.github.io/atlas-docs
+desktop_uidir              = ui
+desktop_applaunchname      = atlas-fnos.Application
+checksum                   = 11cef10d1f43e5638d133003cb23b46b
+ctl_stop                   = true
+checkport                  = true
+disable_authorization_path = false
+desc                       = <p>一款简单、易用的个人NAS导航页</p>

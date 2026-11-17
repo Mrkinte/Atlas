@@ -1,0 +1,17 @@
+<linker>
+    <!--
+      FreeSql 通过反射访问实体的构造函数、属性与特性来做结果映射与建表，
+      AOT 裁剪会移除这些反射元数据导致运行时崩溃（IL2104/IL3053 警告即指此类风险）。
+      在此显式保留全部实体的完整元数据。新增实体时需同步添加条目。
+    -->
+    <assembly fullname="atlas">
+        <type fullname="Atlas.ConfigEntity" preserve="all"/>
+        <type fullname="Atlas.Features.Auth.Entities.UserEntity" preserve="all"/>
+        <type fullname="Atlas.Features.Auth.Entities.RefreshTokenEntity" preserve="all"/>
+        <type fullname="Atlas.Features.Auth.Entities.RevokedTokenEntity" preserve="all"/>
+        <type fullname="Atlas.Features.Card.Entities.CardEntity" preserve="all"/>
+        <type fullname="Atlas.Features.Image.Entities.ImageEntity" preserve="all"/>
+        <type fullname="Atlas.Features.Settings.Entities.SettingsEntity" preserve="all"/>
+        <type fullname="Atlas.Features.Live2D.Entities.Live2DModelConfigEntity" preserve="all"/>
+    </assembly>
+</linker>

@@ -1,0 +1,13 @@
+{
+  ".url": {
+    "atlas-fnos.Application": {
+      "allUsers": false,
+      "icon": "images/icon_{0}.png",
+      "port": "${wizard_port}",
+      "protocol": "http",
+      "title": "Atlas",
+      "type": "url",
+      "url": "/"
+    }
+  }
+}

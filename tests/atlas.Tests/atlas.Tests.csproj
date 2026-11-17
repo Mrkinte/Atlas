@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <!-- 备份恢复入口是 IFormFile，需要 ASP.NET Core 共享框架里的 HTTP 抽象；src 是 Web 项目，
+         此处显式声明以便测试直接构造 FormFile -->
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0"/>
+        <PackageReference Include="xunit" Version="2.9.3"/>
+        <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2"/>
+    </ItemGroup>
+
+    <!-- xUnit 特性在所有测试文件可用，避免每个文件重复 using -->
+    <ItemGroup>
+        <Using Include="Xunit"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\src\atlas.csproj"/>
+    </ItemGroup>
+
+    <!-- BE-1.6：把 src 的 TrimmerRoots.xml 复制到测试输出目录，测试按"随程序发布的文件"视角读取 -->
+    <ItemGroup>
+        <None Include="..\..\src\TrimmerRoots.xml" Link="TrimmerRoots.xml" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
+
+</Project>

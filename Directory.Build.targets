@@ -1,0 +1,74 @@
+<Project>
+
+    <!--
+        版本号注入：唯一来源是 git tag（vX.Y.Z），与 script/release.sh 的约定保持一致。
+
+          HEAD 正好在 vX.Y.Z 标签上  -> X.Y.Z
+          HEAD 不在标签上            -> X.Y.Z-dev（X.Y.Z 取最近的 v* 标签）
+          仓库没有任何 v* 标签        -> 0.0.0-dev
+          非 git 环境 / 未安装 git    -> 0.0.0-dev
+
+        正式发布请用 RELEASE=1 bash script/build.sh 在标签提交上构建。
+    -->
+
+    <Target Name="AtlasResolveVersion"
+            BeforeTargets="GetAssemblyVersion;GenerateAssemblyInfo"
+            Condition="'$(AtlasVersionResolved)' != 'true'">
+
+        <Exec Command="git describe --tags --exact-match --match &quot;v*&quot; HEAD"
+              WorkingDirectory="$(MSBuildThisFileDirectory)"
+              ConsoleToMSBuild="true"
+              StandardOutputImportance="low"
+              StandardErrorImportance="low"
+              EchoOff="true"
+              IgnoreExitCode="true">
+            <Output TaskParameter="ExitCode" PropertyName="_AtlasExactTagExitCode"/>
+            <Output TaskParameter="ConsoleOutput" PropertyName="_AtlasExactTagOutput"/>
+        </Exec>
+
+        <Exec Command="git describe --tags --match &quot;v*&quot; --abbrev=0"
+              WorkingDirectory="$(MSBuildThisFileDirectory)"
+              ConsoleToMSBuild="true"
+              StandardOutputImportance="low"
+              StandardErrorImportance="low"
+              EchoOff="true"
+              IgnoreExitCode="true">
+            <Output TaskParameter="ExitCode" PropertyName="_AtlasBaseTagExitCode"/>
+            <Output TaskParameter="ConsoleOutput" PropertyName="_AtlasBaseTagOutput"/>
+        </Exec>
+
+        <!-- 从 git 输出中提取纯 X.Y.Z，避免换行、回车和前导 v 干扰 -->
+        <PropertyGroup>
+            <_AtlasExactVersion>$([System.Text.RegularExpressions.Regex]::Match('$(_AtlasExactTagOutput)', 'v([0-9]+\.[0-9]+\.[0-9]+)').Groups[1].Value)</_AtlasExactVersion>
+            <_AtlasBaseVersion>$([System.Text.RegularExpressions.Regex]::Match('$(_AtlasBaseTagOutput)', 'v([0-9]+\.[0-9]+\.[0-9]+)').Groups[1].Value)</_AtlasBaseVersion>
+        </PropertyGroup>
+
+        <PropertyGroup Condition="'$(_AtlasExactTagExitCode)' == '0' and '$(_AtlasExactVersion)' != ''">
+            <_AtlasComputedVersion>$(_AtlasExactVersion)</_AtlasComputedVersion>
+        </PropertyGroup>
+
+        <PropertyGroup Condition="'$(_AtlasComputedVersion)' == '' and '$(_AtlasBaseTagExitCode)' == '0' and '$(_AtlasBaseVersion)' != ''">
+            <_AtlasComputedVersion>$(_AtlasBaseVersion)-dev</_AtlasComputedVersion>
+        </PropertyGroup>
+
+        <PropertyGroup Condition="'$(_AtlasComputedVersion)' == ''">
+            <_AtlasComputedVersion>0.0.0-dev</_AtlasComputedVersion>
+        </PropertyGroup>
+
+        <PropertyGroup>
+            <_AtlasVersionPrefix>$([System.Text.RegularExpressions.Regex]::Match('$(_AtlasComputedVersion)', '^[0-9]+\.[0-9]+\.[0-9]+').Value)</_AtlasVersionPrefix>
+            <_AtlasVersionSuffix>$([System.Text.RegularExpressions.Regex]::Replace('$(_AtlasComputedVersion)', '^[0-9]+\.[0-9]+\.[0-9]+-?', ''))</_AtlasVersionSuffix>
+
+            <Version>$(_AtlasComputedVersion)</Version>
+            <VersionPrefix>$(_AtlasVersionPrefix)</VersionPrefix>
+            <VersionSuffix>$(_AtlasVersionSuffix)</VersionSuffix>
+            <AssemblyVersion>$(_AtlasVersionPrefix).0</AssemblyVersion>
+            <FileVersion>$(_AtlasVersionPrefix).0</FileVersion>
+            <InformationalVersion>$(_AtlasComputedVersion)</InformationalVersion>
+            <AtlasVersionResolved>true</AtlasVersionResolved>
+        </PropertyGroup>
+
+        <Message Importance="high" Text="atlas 版本：$(_AtlasComputedVersion)"/>
+    </Target>
+
+</Project>

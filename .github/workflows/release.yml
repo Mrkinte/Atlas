@@ -1,0 +1,241 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 版本号由 Directory.Build.targets 从 git tag 解析，浅克隆会退化成 0.0.0-dev
+          fetch-depth: 0
+
+      - name: 解析版本
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "tag 必须形如 vX.Y.Z，当前为 ${tag}" >&2
+              exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "构建版本 ${version}"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: webui/package-lock.json
+
+      - name: 安装前端依赖
+        working-directory: webui
+        run: npm ci
+
+      - name: 前端单元测试
+        working-directory: webui
+        run: npm test
+
+      # vite 输出到 src/wwwroot，该目录不入库，作为制品传给各架构的发布作业
+      - name: 前端类型检查与构建
+        working-directory: webui
+        run: npm run build
+
+      - name: 后端单元测试
+        run: dotnet test tests/atlas.Tests/atlas.Tests.csproj -c Release --nologo
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wwwroot
+          path: src/wwwroot
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 固定在 22.04（glibc 2.35）：AOT 产物会带上构建机的 glibc 符号版本，
+          # 用 24.04 编译出来的二进制在 Debian 12 / fnOS 上会因 glibc 过旧而启动失败
+          - rid: linux-x64
+            runner: ubuntu-22.04
+          - rid: linux-arm64
+            runner: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 程序集版本由 git tag 解析，浅克隆会让产物里的版本退化成 0.0.0-dev
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: 安装 AOT 依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev libssl-dev
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: wwwroot
+          path: src/wwwroot
+
+      - name: 发布后端
+        run: dotnet publish src/atlas.csproj -r "${{ matrix.rid }}" -c Release -o "bin/${{ matrix.rid }}" --nologo
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ matrix.rid }}
+          path: bin/${{ matrix.rid }}
+          if-no-files-found: error
+
+  package:
+    # Release 由本作业创建，windows 作业随后追加安装包
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      FNPACK_VERSION: "1.2.3"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 安装打包依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends dpkg-dev rsync
+
+      - name: 安装 fnpack
+        run: |
+          curl -fsSL -o /tmp/fnpack \
+            "https://static2.fnnas.com/fnpack/fnpack-${FNPACK_VERSION}-linux-amd64"
+          sudo install -m 755 /tmp/fnpack /usr/local/bin/fnpack
+          fnpack --help
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: bin-linux-x64
+          path: bin/linux-x64
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: bin-linux-arm64
+          path: bin/linux-arm64
+
+      - name: 打包 deb / fpk / tar.gz
+        run: |
+          bash script/package-linux.sh --arch x64 --version "$VERSION" --payload bin/linux-x64
+          bash script/package-linux.sh --arch arm64 --version "$VERSION" --payload bin/linux-arm64
+
+      - name: 生成发布说明
+        run: |
+          prev="$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)"
+          if [ -n "$prev" ]; then
+              range="${prev}..HEAD"
+          else
+              range="-n 200 HEAD"
+          fi
+
+          git log --no-merges --pretty=format:'%s' $range \
+              | grep -Ei '^(feat|fix|refactor)(\([^)]*\))?!?:' \
+              | sed 's/^/- /' > release-notes.md || true
+
+          if [ ! -s release-notes.md ]; then
+              echo "本次发布无 feat / fix / refactor 变更" > release-notes.md
+          fi
+
+      - name: 创建 Release 并上传产物
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+              gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+              gh release create "$GITHUB_REF_NAME" dist/* \
+                  --title "Atlas ${VERSION}" \
+                  --notes-file release-notes.md
+          fi
+
+  windows:
+    needs: package
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: webui/package-lock.json
+
+      - name: 解析版本
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "tag 必须形如 vX.Y.Z，当前为 ${tag}" >&2
+              exit 1
+          fi
+          echo "VERSION=${version}" >> "$GITHUB_ENV"
+          echo "构建版本 ${version}"
+
+      - name: 安装前端依赖
+        working-directory: webui
+        run: npm ci
+
+      # 前端产物在 src/wwwroot，必须先于 dotnet publish
+      - name: 前端构建
+        working-directory: webui
+        run: npm run build
+
+      - name: 发布后端
+        shell: pwsh
+        run: |
+          Remove-Item -Recurse -Force bin-win -ErrorAction SilentlyContinue
+          dotnet publish src/atlas.csproj -r win-x64 -c Release -o bin-win --nologo
+
+      - name: 安装 Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: 生成安装包
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          & $iscc "/DAppVersion=$env:VERSION" "package\exe\atlas.iss"
+          Get-ChildItem dist
+
+      - name: 上传安装包到 Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.exe --clobber

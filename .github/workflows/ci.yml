@@ -1,0 +1,74 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.scan.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 扫描提交类型
+        id: scan
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+              range="${BASE}..${HEAD}"
+          elif git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+              range="${BEFORE}..${HEAD}"
+          else
+              range="-n 1 ${HEAD}"
+          fi
+
+          if git log --no-merges --pretty=format:'%s' "$range" \
+              | grep -Eq '^(feat|fix|refactor|ci)(\([^)]*\))?!?:'; then
+              echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+              echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: detect
+    if: needs.detect.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 版本号由 Directory.Build.targets 从 git tag 解析，浅克隆会退化成 0.0.0-dev
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: webui/package-lock.json
+
+      - name: 安装前端依赖
+        working-directory: webui
+        run: npm ci
+
+      - name: 前端单元测试
+        working-directory: webui
+        run: npm test
+
+      - name: 前端类型检查与构建
+        working-directory: webui
+        run: npm run build
+
+      - name: 后端单元测试
+        run: dotnet test tests/atlas.Tests/atlas.Tests.csproj -c Release --nologo
