@@ -10,14 +10,14 @@ import Options24Regular from "@vicons/fluent/es/Options24Regular.js";
 import Person24Regular from "@vicons/fluent/es/Person24Regular.js";
 import ShieldLock24Regular from "@vicons/fluent/es/ShieldLock24Regular.js";
 import ErrorCircle24Regular from "@vicons/fluent/es/ErrorCircle24Regular.js";
-import { loadSettings } from "@/stores/settings.ts";
+import { reloadSettings } from "@/stores/settings.ts";
 import AboutSettings from "@/components/settings/AboutSettings.vue";
 import AccountSettings from "@/components/settings/AccountSettings.vue";
 import AppearanceSettings from "@/components/settings/AppearanceSettings.vue";
 import BackupSettings from "@/components/settings/BackupSettings.vue";
 import HttpsSettings from "@/components/settings/HttpsSettings.vue";
 import Live2dSettings from "@/components/settings/Live2dSettings.vue";
-import SystemStatusSettings from "@/components/settings/SystemStatusSettings.vue";
+import HostSettings from "@/components/settings/HostSettings.vue";
 import { platform } from "@/config/platform.ts";
 import { iconConverter } from "@/utils/iconConverter.ts";
 import LayoutSettings from "@/components/settings/LayoutSettings.vue";
@@ -51,7 +51,7 @@ const menuOptions: MenuOption[] = [
     icon: iconConverter(Teddy24Regular),
   },
   {
-    label: "系统状态",
+    label: "主机",
     key: "system",
     icon: iconConverter(Desktop24Regular),
   },
@@ -81,9 +81,9 @@ function handleGroupSelect(key: string) {
   activeGroup.value = key as GroupKey;
 }
 
-// 进入设置页时拉取服务端配置（启动时可能尚未登录）
+// 进入设置页时重新拉取，登录后才能拿到完整配置
 onMounted(() => {
-  void loadSettings();
+  void reloadSettings();
 });
 </script>
 
@@ -118,7 +118,7 @@ onMounted(() => {
 
         <Live2dSettings v-else-if="activeGroup === 'live2d'" />
 
-        <SystemStatusSettings v-else-if="activeGroup === 'system'" />
+        <HostSettings v-else-if="activeGroup === 'system'" />
 
         <HttpsSettings v-else-if="activeGroup === 'https'" />
 

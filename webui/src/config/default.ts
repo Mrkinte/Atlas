@@ -51,6 +51,9 @@ export const DEFAULT_SETTINGS = {
   publicHardware: [] as string[],
   /** 关闭后所有人包括管理员都停止接收 */
   systemStatusEnabled: true,
+  dockerEnabled: true,
+  /** 空字符串按平台取默认路径 */
+  dockerSocket: "",
   serviceProbeEnabled: true,
   /** 关闭后首页不加载 Live2D 代码 */
   live2DEnabled: false,

@@ -65,6 +65,8 @@ public class SettingsService(IFreeSql fsql, SystemStatusRuntime systemStatus)
             PrimaryColor = string.Empty,
             PublicHardware = [],
             SystemStatusEnabled = true,
+            DockerEnabled = true,
+            DockerSocket = string.Empty,
             SiteSubtitle = string.Empty,
             Favicon = string.Empty,
             ShowHeaderLogo = true,
@@ -94,6 +96,8 @@ public class SettingsService(IFreeSql fsql, SystemStatusRuntime systemStatus)
             PublicHardware = SerializePublicHardware(
                 NormalizePublicHardware(request.PublicHardware)),
             SystemStatusEnabled = request.SystemStatusEnabled,
+            DockerEnabled = request.DockerEnabled,
+            DockerSocket = NormalizeDockerSocket(request.DockerSocket),
             ServiceProbeEnabled = request.ServiceProbeEnabled,
             Live2DEnabled = request.Live2DEnabled,
             SiteSubtitle = NormalizeText(request.SiteSubtitle),
@@ -282,6 +286,14 @@ public class SettingsService(IFreeSql fsql, SystemStatusRuntime systemStatus)
         return result.ToArray();
     }
 
+    /// <summary>只做去空白与长度限制，路径格式由 Docker 端点解析决定</summary>
+    internal static string NormalizeDockerSocket(string? value)
+    {
+        var socket = value?.Trim() ?? string.Empty;
+        if (socket.Length > 512) return string.Empty;
+        return socket.Any(char.IsControl) ? string.Empty : socket;
+    }
+
     /// <summary>只接受 #rgb / #rrggbb，其余回退为空（沿用 Naive UI 默认主色）</summary>
     internal static string NormalizeColor(string? value)
     {
@@ -315,6 +327,8 @@ internal static class SettingsMappingExtensions
             PublicHardware =
                 SettingsService.DeserializePublicHardware(entity.PublicHardware),
             SystemStatusEnabled = entity.SystemStatusEnabled,
+            DockerEnabled = entity.DockerEnabled ?? true,
+            DockerSocket = entity.DockerSocket ?? string.Empty,
             SiteSubtitle = entity.SiteSubtitle ?? string.Empty,
             Favicon = entity.Favicon ?? string.Empty,
             ShowHeaderLogo = entity.ShowHeaderLogo ?? true,

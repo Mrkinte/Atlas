@@ -26,6 +26,11 @@ public class SettingsResponse
 
     public bool SystemStatusEnabled { get; init; }
 
+    public bool DockerEnabled { get; init; } = true;
+
+    /// <summary>匿名响应会清空该字段，因此允许返回前改写</summary>
+    public string DockerSocket { get; set; } = string.Empty;
+
     public string SiteSubtitle { get; init; } = string.Empty;
 
     public string Favicon { get; init; } = string.Empty;

@@ -290,6 +290,8 @@ public class BackupRestoreService(
             PrimaryColor = settings.PrimaryColor,
             PublicHardware = SettingsService.SerializePublicHardware(settings.PublicHardware),
             SystemStatusEnabled = settings.SystemStatusEnabled,
+            DockerEnabled = settings.DockerEnabled ?? true,
+            DockerSocket = SettingsService.NormalizeDockerSocket(settings.DockerSocket),
             SiteSubtitle = settings.SiteSubtitle ?? string.Empty,
             Favicon = settings.Favicon ?? string.Empty,
             ShowHeaderLogo = settings.ShowHeaderLogo,
@@ -375,7 +377,9 @@ public class BackupRestoreService(
             current.FooterText,
             current.ServiceProbeEnabled,
             live2D.Enabled,
-            ResolveLive2DModelPath(live2D, entries)), ct);
+            ResolveLive2DModelPath(live2D, entries),
+            current.DockerEnabled,
+            current.DockerSocket), ct);
     }
 
     /// <summary>包内缺少对应文件时回退内置模型</summary>

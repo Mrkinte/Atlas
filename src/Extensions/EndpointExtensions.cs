@@ -3,8 +3,10 @@ using Atlas.Features.Auth;
 using Atlas.Features.Backup;
 using Atlas.Features.Card;
 using Atlas.Features.Demo;
+using Atlas.Features.Docker;
 using Atlas.Features.Https;
 using Atlas.Features.Image;
+using Atlas.Features.IpInfo;
 using Atlas.Features.Live2D;
 using Atlas.Features.Settings;
 using Atlas.Features.Settings.Entities;
@@ -29,6 +31,8 @@ public static class EndpointExtensions
         app.MapSystemStatusEndpoints();
         app.MapAboutEndpoints();
         app.MapUpdateEndpoints();
+        app.MapIpInfoEndpoints();
+        app.MapDockerEndpoints();
         return app;
     }
 

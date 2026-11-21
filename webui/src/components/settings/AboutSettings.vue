@@ -253,11 +253,6 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* 与上方基础卡片留出间距 */
-.settings__heading {
-  margin-top: 32px;
-}
-
 .about__value {
   flex: 0 0 auto;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;

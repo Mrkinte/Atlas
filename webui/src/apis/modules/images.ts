@@ -1,5 +1,7 @@
 import { client } from "@/apis/client.ts";
 import { extractErrorMessage } from "@/apis/errors.ts";
+import { DEMO_READONLY_MESSAGE } from "@/config/messages.ts";
+import { demoMode } from "@/stores/demo.ts";
 import type { components } from "@/apis/schema";
 
 type FaviconRequest = components["schemas"]["FaviconRequest"];
@@ -33,6 +35,9 @@ export function uploadImageWithProgress(
   kind: string,
   onProgress?: (percent: number) => void,
 ): Promise<ImageResponse> {
+  // XHR 绕过 client 中间件，演示模式下同样不能把文件发出去
+  if (demoMode.value) return Promise.reject(new Error(DEMO_READONLY_MESSAGE));
+
   return new Promise((resolve, reject) => {
     const formData = new FormData();
     formData.append("file", file);

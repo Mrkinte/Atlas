@@ -17,4 +17,6 @@ public record UpdateSettingsRequest(
     string? FooterText,
     bool ServiceProbeEnabled,
     bool Live2DEnabled,
-    string? Live2DModelPath);
+    string? Live2DModelPath,
+    bool DockerEnabled = true,
+    string? DockerSocket = null);

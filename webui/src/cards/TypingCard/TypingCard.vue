@@ -71,9 +71,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div :style="cardStyle" class="typing-card">
-    <span class="typing-card__text">{{ typedText }}</span>
-    <span :class="{ 'typing-card__cursor--typing': isTyping }" class="typing-card__cursor" />
+  <div :class="{ 'typing-card--typing': isTyping }" :style="cardStyle" class="typing-card">
+    <span class="typing-card__text">{{ typedText }}<span class="typing-card__cursor" /></span>
   </div>
 </template>
 
@@ -138,18 +137,20 @@ onUnmounted(() => {
 }
 
 .typing-card__cursor {
-  flex: none;
+  display: inline-block;
   width: max(2px, 0.08em);
   height: 1.05em;
   margin-left: 0.08em;
   border-radius: 1px;
   background-color: currentColor;
   box-shadow: 0 0 8px currentColor;
+  /* 光标比文字高出的部分上下均分 */
+  vertical-align: -0.175em;
   animation: typing-card-blink 1s step-end infinite;
 }
 
 /* 打字过程中光标常亮，不再闪烁 */
-.typing-card__cursor--typing {
+.typing-card--typing .typing-card__cursor {
   animation: none;
 }
 

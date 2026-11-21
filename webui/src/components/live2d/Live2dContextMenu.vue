@@ -3,6 +3,7 @@ import { ref } from "vue";
 import Checkmark24Regular from "@vicons/fluent/es/Checkmark24Regular.js";
 import SlideSize24Regular from "@vicons/fluent/es/SlideSize24Regular.js";
 import QuestionCircle24Regular from "@vicons/fluent/es/QuestionCircle24Regular.js";
+import Power24Regular from "@vicons/fluent/es/Power24Regular.js";
 import { appTheme } from "@/stores/theme.ts";
 import type {
   Live2dManifestWardrobeGroup,
@@ -37,6 +38,7 @@ const emit = defineEmits<{
   selectOutfit: [group: Live2dManifestWardrobeGroup, option: Live2dManifestWardrobeOption];
   toggleEdgeSnap: [];
   toggleResize: [];
+  closeStage: [];
 }>();
 
 /** 暴露给父组件，用于判断事件是否在菜单内部 */
@@ -57,6 +59,13 @@ defineExpose({ menuElement: menuRef });
     >
       <!-- 用 n-scrollbar 保持站点滚动容器外观一致 -->
       <n-scrollbar style="max-height: 60vh">
+        <button class="live2d-menu__item" type="button" @click="emit('closeStage')">
+          <Power24Regular class="live2d-menu__icon" />
+          <span class="live2d-menu__label">关闭看板娘</span>
+        </button>
+
+        <div class="live2d-menu__divider"></div>
+
         <button class="live2d-menu__item" type="button" @click="emit('toggleEdgeSnap')">
           <Checkmark24Regular
             :class="{ 'live2d-menu__icon--hidden': !edgeSnap }"

@@ -8,8 +8,10 @@ using Atlas.Features.Backup.Migrations;
 using Atlas.Features.Card;
 using Atlas.Features.Database;
 using Atlas.Features.Demo;
+using Atlas.Features.Docker;
 using Atlas.Features.Https;
 using Atlas.Features.Image;
+using Atlas.Features.IpInfo;
 using Atlas.Features.Live2D;
 using Atlas.Features.Settings;
 using Atlas.Features.SystemStatus;
@@ -205,6 +207,12 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<AboutService>();
         services.AddAboutJsonContext();
+
+        services.AddSingleton<IpInfoService>();
+        services.AddIpInfoJsonContext();
+
+        services.AddSingleton<DockerStatusService>();
+        services.AddDockerJsonContext();
 
         services.AddSingleton<UpdateService>();
         services.AddUpdateJsonContext();

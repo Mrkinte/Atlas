@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useAppMessage } from "@/composables/useAppMessage.ts";
 import { settings } from "@/stores/settings.ts";
 import { useSettingsSave } from "@/composables/useSettingsSave.ts";
@@ -15,6 +15,20 @@ const hardware = ref<HardwareInfo | null>(null);
 const loading = ref(true);
 const loadFailed = ref(false);
 const savingEnabled = ref(false);
+const savingDocker = ref(false);
+const savingSocket = ref(false);
+const dockerSocket = ref(settings.dockerSocket);
+
+watch(
+  () => settings.dockerSocket,
+  (value) => {
+    dockerSocket.value = value;
+  },
+);
+
+const socketChanged = computed(
+  () => dockerSocket.value.trim() !== settings.dockerSocket,
+);
 
 const isPublic = computed(() =>
   hardware.value ? settings.publicHardware.includes(hardware.value.id) : false,
@@ -66,6 +80,35 @@ async function handleToggle(value: boolean) {
   if (error) return;
 
   message.success(value ? "已公开本机状态" : "已取消公开本机状态");
+}
+
+async function handleDockerEnabled(value: boolean) {
+  if (savingDocker.value) return;
+
+  savingDocker.value = true;
+  try {
+    const error = await saveSiteSettings({ dockerEnabled: value });
+    if (error) return;
+    message.success(value ? "已启用 Docker 状态" : "已禁用 Docker 状态");
+  } finally {
+    savingDocker.value = false;
+  }
+}
+
+async function saveDockerSocket() {
+  if (savingSocket.value || !socketChanged.value) return;
+
+  savingSocket.value = true;
+  try {
+    const error = await saveSiteSettings({ dockerSocket: dockerSocket.value.trim() });
+    if (error) {
+      dockerSocket.value = settings.dockerSocket;
+      return;
+    }
+    message.success("已保存 Docker Socket 路径");
+  } finally {
+    savingSocket.value = false;
+  }
 }
 
 async function handleProbeEnabled(value: boolean) {
@@ -163,6 +206,51 @@ onMounted(() => {
           @update:value="handleProbeEnabled"
         />
       </div>
+    </div>
+  </n-card>
+
+  <h2 class="settings__heading" style="margin-top: 24px;">Docker</h2>
+
+  <n-card size="small">
+    <div class="settings__row">
+      <div class="settings__row-main">
+        <div class="settings__row-label">启用 Docker 状态</div>
+        <div class="settings__row-desc">首页 Docker 卡片读取容器、镜像与资源用量</div>
+      </div>
+      <div class="settings__row-control">
+        <n-switch
+          :loading="savingDocker"
+          :value="settings.dockerEnabled"
+          @update:value="handleDockerEnabled"
+        />
+      </div>
+    </div>
+
+    <n-divider class="settings__divider" />
+
+    <div class="settings__row settings__row--stack">
+      <div class="settings__row-main">
+        <div class="settings__row-label">Socket 路径</div>
+        <div class="settings__row-desc">
+          留空使用默认路径。Linux：unix:///var/run/docker.sock；Windows：npipe:////./pipe/docker_engine
+        </div>
+      </div>
+      <n-input-group>
+        <n-input
+          v-model:value="dockerSocket"
+          :disabled="savingSocket"
+          :maxlength="512"
+          placeholder="unix:///var/run/docker.sock"
+        />
+        <n-button
+          :disabled="!socketChanged"
+          :loading="savingSocket"
+          type="primary"
+          @click="saveDockerSocket"
+        >
+          保存
+        </n-button>
+      </n-input-group>
     </div>
   </n-card>
 </template>

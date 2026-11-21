@@ -22,8 +22,12 @@ public static class SettingsEndpoints
     {
         var response = await service.GetAsync(ct);
 
-        // 白名单包含主机名，仅登录用户可见，匿名请求隐藏
-        if (context.User.Identity?.IsAuthenticated != true) response.PublicHardware = [];
+        // 白名单与 Docker socket 路径仅登录用户可见，匿名请求隐藏
+        if (context.User.Identity?.IsAuthenticated != true)
+        {
+            response.PublicHardware = [];
+            response.DockerSocket = string.Empty;
+        }
 
         return TypedResults.Ok(response);
     }

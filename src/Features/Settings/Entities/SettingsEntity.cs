@@ -38,6 +38,12 @@ public class SettingsEntity
 
     public bool SystemStatusEnabled { get; set; }
 
+    /// <summary>NULL 表示引入该配置前的存量行，按启用处理</summary>
+    public bool? DockerEnabled { get; set; }
+
+    /// <summary>空字符串表示按平台取默认路径</summary>
+    [Column(StringLength = 512)] public string? DockerSocket { get; set; }
+
     /// <summary>打开首页时是否探测服务卡片的可达性</summary>
     public bool ServiceProbeEnabled { get; set; } = true;
 

@@ -26,6 +26,7 @@ import {
   MOTION_PRIORITY_FORCE,
 } from "@/services/live2dRuntime.js";
 import { useAppMessage } from "@/composables/useAppMessage.js";
+import { useSettingsSave } from "@/composables/useSettingsSave.js";
 import { useLive2dLayout } from "@/composables/useLive2dLayout.js";
 import { useLive2dHitTest } from "@/composables/useLive2dHitTest.js";
 import { useLive2dMeshDebug } from "@/composables/useLive2dMeshDebug.js";
@@ -55,6 +56,7 @@ let manifest: Live2dManifest | undefined;
 const modelConfig = ref<Live2dModelConfig>(createEmptyLive2dModelConfig(BUILT_IN_MODEL_PATH));
 
 const message = useAppMessage();
+const saveSiteSettings = useSettingsSave();
 
 /** 未授权保存失败是否已提示过，避免连续换装时重复弹窗 */
 let saveBlockedNotified = false;
@@ -312,6 +314,13 @@ function toggleResizeFromMenu() {
   oml2d?.tipsMessage(resizeMode.value ? "拖动右下角手柄调整大小" : "已退出尺寸调整", 2600, 3);
 }
 
+/** 关闭后由设置项驱动 App 卸载舞台 */
+async function handleCloseStageFromMenu() {
+  closeMenu();
+  if (await saveSiteSettings({ live2DEnabled: false })) return;
+  message.success("已关闭看板娘");
+}
+
 /** 开启吸附时收回移出视口的部分，关闭时记录当前像素位置 */
 function toggleEdgeSnapFromMenu() {
   closeMenu();
@@ -491,6 +500,7 @@ onBeforeUnmount(() => {
     :wardrobes="menuWardrobes"
     :x="menuX"
     :y="menuY"
+    @close-stage="handleCloseStageFromMenu"
     @select-expression="selectExpression"
     @select-motion="selectMotion"
     @select-outfit="selectOutfit"

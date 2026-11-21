@@ -92,10 +92,17 @@ export function normalizeSettings(input: Partial<Record<keyof Settings, unknown>
     primaryColor: normalizeHexColor(input.primaryColor),
     publicHardware: normalizePublicHardware(input.publicHardware),
     systemStatusEnabled: input.systemStatusEnabled !== false,
+    dockerEnabled: input.dockerEnabled !== false,
+    dockerSocket: normalizeDockerSocket(input.dockerSocket),
     serviceProbeEnabled: input.serviceProbeEnabled !== false,
     live2DEnabled: input.live2DEnabled === true,
     live2DModelPath: normalizeLive2dModelPath(input.live2DModelPath),
   };
+}
+
+function normalizeDockerSocket(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, 512);
 }
 
 function normalizePublicHardware(value: unknown): string[] {
@@ -137,6 +144,13 @@ export function loadSettings(): Promise<void> {
 /** 看板娘据此决定初始模型 */
 export function whenSettingsLoaded(): Promise<void> {
   return firstLoadTask ?? loadSettings();
+}
+
+/** 设置页每次进入都重新拉取，避免登录后仍使用匿名响应里被清空的字段 */
+export function reloadSettings(): Promise<void> {
+  if (demoMode.value) return loadSettings();
+  firstLoadTask = fetchSettings();
+  return firstLoadTask;
 }
 
 async function fetchSettings() {

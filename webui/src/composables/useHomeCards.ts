@@ -4,8 +4,10 @@ import { useCards } from "@/composables/useCards.ts";
 import { openEditor } from "@/composables/useCardEditorHost.ts";
 import { getCardPlugin } from "@/cards/registry.ts";
 import type { CardPlugin, CardRequired, PlatformCardRequired } from "@/cards/types.ts";
-import { findNextPosition } from "@/utils/cardLayoutCalculate.ts";
+import { findAppendPosition, findNextPosition } from "@/utils/cardLayoutCalculate.ts";
+import { MOBILE_GRID_COLS } from "@/config/default.ts";
 import { platform } from "@/config/platform.ts";
+import { settings } from "@/stores/settings.ts";
 import { v4 as uuidv4 } from "uuid";
 
 /**
@@ -93,23 +95,16 @@ export function useHomeCards() {
   }
 
   async function addCard(cardPlugin: CardPlugin) {
-    const { smY, lgY } = findNextPosition(cards.value);
+    const { minWidth: width, minHeight: height } = cardPlugin;
+    const sm = findAppendPosition(cards.value, "sm", width, height, MOBILE_GRID_COLS);
+    const lg = findAppendPosition(cards.value, "lg", width, height, settings.desktopCols);
+
     const newCard: CardRequired = {
       id: uuidv4(),
-      sm: {
-        x: 0,
-        y: smY,
-        width: cardPlugin.minWidth,
-        height: cardPlugin.minHeight,
-      },
-      lg: {
-        x: 0,
-        y: lgY,
-        width: cardPlugin.minWidth,
-        height: cardPlugin.minHeight,
-      },
-      minWidth: cardPlugin.minWidth,
-      minHeight: cardPlugin.minHeight,
+      sm: { ...sm, width, height },
+      lg: { ...lg, width, height },
+      minWidth: width,
+      minHeight: height,
       isVisible: true,
       mobileVisible: true,
       type: cardPlugin.name,

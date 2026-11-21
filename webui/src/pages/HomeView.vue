@@ -7,6 +7,7 @@ import { useHomeCards } from "@/composables/useHomeCards.ts";
 import CardSelector from "@/components/CardSelector.vue";
 import HomeGrid from "../components/home/HomeGrid.vue";
 import HomeEditMenu from "@/components/home/HomeEditMenu.vue";
+import HomeEditTip from "@/components/home/HomeEditTip.vue";
 import HomeBlankMenu from "@/components/home/HomeBlankMenu.vue";
 import HomeCardMenu from "@/components/home/HomeCardMenu.vue";
 import {
@@ -138,6 +139,8 @@ watch(isAuthenticated, () => {
   <div class="home-page" @contextmenu="handleBlankContextMenu">
     <!-- 首页公开访问，编辑入口仅对已登录用户展示 -->
     <HomeEditMenu v-if="isAuthenticated" :editing="enableGridEditMode" @select="handleMenuSelect" />
+
+    <HomeEditTip v-if="enableGridEditMode" />
 
     <CardSelector v-model:show="showCardSelector" @select="addCard" />
 

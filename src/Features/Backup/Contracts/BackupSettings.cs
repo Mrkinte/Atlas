@@ -28,6 +28,11 @@ public class BackupSettings
 
     public bool SystemStatusEnabled { get; set; }
 
+    /// <summary>旧备份没有该字段时按启用处理</summary>
+    public bool? DockerEnabled { get; set; }
+
+    public string DockerSocket { get; set; } = string.Empty;
+
     public string SiteSubtitle { get; set; } = string.Empty;
 
     public string Favicon { get; set; } = string.Empty;
@@ -53,6 +58,8 @@ public class BackupSettings
             PrimaryColor = source.PrimaryColor,
             PublicHardware = [.. source.PublicHardware],
             SystemStatusEnabled = source.SystemStatusEnabled,
+            DockerEnabled = source.DockerEnabled,
+            DockerSocket = source.DockerSocket,
             SiteSubtitle = source.SiteSubtitle,
             Favicon = source.Favicon,
             ShowHeaderLogo = source.ShowHeaderLogo,

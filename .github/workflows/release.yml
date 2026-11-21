@@ -117,8 +117,6 @@ jobs:
       FNPACK_VERSION: "1.2.3"
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: 安装打包依赖
         run: |
@@ -147,22 +145,9 @@ jobs:
           bash script/package-linux.sh --arch x64 --version "$VERSION" --payload bin/linux-x64
           bash script/package-linux.sh --arch arm64 --version "$VERSION" --payload bin/linux-arm64
 
-      - name: 生成发布说明
-        run: |
-          prev="$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)"
-          if [ -n "$prev" ]; then
-              range="${prev}..HEAD"
-          else
-              range="-n 200 HEAD"
-          fi
-
-          git log --no-merges --pretty=format:'%s' $range \
-              | grep -Ei '^(feat|fix|refactor)(\([^)]*\))?!?:' \
-              | sed 's/^/- /' > release-notes.md || true
-
-          if [ ! -s release-notes.md ]; then
-              echo "本次发布无 feat / fix / refactor 变更" > release-notes.md
-          fi
+      # 去掉模板里的 HTML 注释，客户端关于页按纯文本展示 Release 正文
+      - name: 准备发布说明
+        run: sed '/<!--/,/-->/d' script/UPDATE.md > release-notes.md
 
       - name: 创建 Release 并上传产物
         env:

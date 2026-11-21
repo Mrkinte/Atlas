@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CardRequired } from "@/cards/types.ts";
 import {
   desktopGridContainerMinWidth,
+  findAppendPosition,
   findNextPosition,
   gridMargin,
 } from "@/utils/cardLayoutCalculate.ts";
@@ -10,15 +11,13 @@ import {
 const COL_WIDTH = 64;
 const MIN_GRID_MARGIN = 20;
 
-function makeCard(
-  id: string,
-  sm: { y: number; height: number },
-  lg: { y: number; height: number },
-): CardRequired {
+type TestLayout = { x?: number; y: number; width?: number; height: number };
+
+function makeCard(id: string, sm: TestLayout, lg: TestLayout): CardRequired {
   return {
     id,
-    sm: { x: 0, y: sm.y, width: 1, height: sm.height },
-    lg: { x: 0, y: lg.y, width: 1, height: lg.height },
+    sm: { x: sm.x ?? 0, y: sm.y, width: sm.width ?? 1, height: sm.height },
+    lg: { x: lg.x ?? 0, y: lg.y, width: lg.width ?? 1, height: lg.height },
     minWidth: 1,
     minHeight: 1,
     isVisible: true,
@@ -94,5 +93,43 @@ describe("findNextPosition", () => {
       makeCard("b", { y: 2, height: 5 }, { y: 0, height: 1 }),
     ];
     expect(findNextPosition(cards)).toEqual({ smY: 7, lgY: 1 });
+  });
+});
+
+describe("findAppendPosition", () => {
+  it("空布局从左上角开始", () => {
+    expect(findAppendPosition([], "lg", 2, 1, 12)).toEqual({ x: 0, y: 0 });
+  });
+
+  it("接在最后一行最右侧，刚好占满也算放得下", () => {
+    const cards = [
+      makeCard("a", { x: 0, y: 0, width: 2, height: 1 }, { x: 0, y: 0, width: 2, height: 1 }),
+      makeCard("b", { x: 2, y: 0, width: 2, height: 1 }, { x: 2, y: 0, width: 2, height: 1 }),
+    ];
+    expect(findAppendPosition(cards, "lg", 2, 1, 6)).toEqual({ x: 4, y: 0 });
+  });
+
+  it("以最后一行定位，不受前面行影响", () => {
+    const cards = [
+      makeCard("a", { x: 0, y: 0, width: 2, height: 1 }, { x: 0, y: 0, width: 2, height: 1 }),
+      makeCard("b", { x: 0, y: 4, width: 2, height: 1 }, { x: 0, y: 4, width: 2, height: 1 }),
+    ];
+    expect(findAppendPosition(cards, "lg", 2, 1, 6)).toEqual({ x: 2, y: 4 });
+  });
+
+  it("最后一行放不下时另起一行", () => {
+    const cards = [
+      makeCard("a", { x: 0, y: 0, width: 3, height: 2 }, { x: 0, y: 0, width: 3, height: 2 }),
+      makeCard("b", { x: 3, y: 0, width: 3, height: 2 }, { x: 3, y: 0, width: 3, height: 2 }),
+    ];
+    expect(findAppendPosition(cards, "lg", 2, 1, 6)).toEqual({ x: 0, y: 2 });
+  });
+
+  it("最后一行右侧被跨行卡片占用时另起一行", () => {
+    const cards = [
+      makeCard("tall", { x: 2, y: 0, width: 2, height: 5 }, { x: 2, y: 0, width: 2, height: 5 }),
+      makeCard("short", { x: 0, y: 4, width: 2, height: 1 }, { x: 0, y: 4, width: 2, height: 1 }),
+    ];
+    expect(findAppendPosition(cards, "lg", 2, 1, 6)).toEqual({ x: 0, y: 5 });
   });
 });
