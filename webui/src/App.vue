@@ -33,11 +33,37 @@ const Live2DStage = defineAsyncComponent(() => import("@/components/live2d/Live2
 /** 配置到达后才决定是否挂载看板娘，避免禁用时先加载相关代码 */
 const settingsReady = ref(false);
 
+/** 等首屏加载完再进入空闲，看板娘的渲染库与模型资源不和页面请求抢带宽 */
+async function whenPageIdle() {
+  if (document.readyState !== "complete") {
+    await new Promise<void>((resolve) => {
+      window.addEventListener("load", () => resolve(), { once: true });
+    });
+  }
+
+  if (typeof window.requestIdleCallback !== "function") {
+    await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+    return;
+  }
+
+  await new Promise<void>((resolve) => {
+    // 后台标签页不触发空闲回调，用定时器兜底
+    const timer = window.setTimeout(resolve, 3000);
+    window.requestIdleCallback(() => {
+      window.clearTimeout(timer);
+      resolve();
+    }, { timeout: 3000 });
+  });
+}
+
 onMounted(async () => {
   await Promise.race([
     whenSettingsLoaded(),
     new Promise<void>((resolve) => setTimeout(resolve, 3000)),
   ]);
+
+  // 未启用时直接结束等待，启用后才把初始化推迟到页面空闲
+  if (settings.live2DEnabled) await whenPageIdle();
   settingsReady.value = true;
 });
 

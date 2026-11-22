@@ -34,6 +34,8 @@ public class BackupCard
 
     public string Type { get; set; } = string.Empty;
 
+    public string GroupUuid { get; set; } = string.Empty;
+
     public JsonNode? Data { get; set; }
 
     internal static BackupCard FromResponse(CardResponse source)
@@ -54,6 +56,7 @@ public class BackupCard
             IsVisible = source.IsVisible,
             MobileVisible = source.MobileVisible,
             Type = source.Type,
+            GroupUuid = source.GroupUuid,
             Data = source.Data?.DeepClone()
         };
     }

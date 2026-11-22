@@ -16,6 +16,7 @@ let loadedInDemo = false;
 function toCardPayload(card: CardRequired): CreateCardRequest {
   return {
     uuid: card.id,
+    groupUuid: card.groupUuid,
     smX: card.sm.x,
     smY: card.sm.y,
     smWidth: card.sm.width,
@@ -52,6 +53,7 @@ export function useCards() {
       loadedInDemo = demoMode.value;
       cards.value = data.map((card: CardResponse): CardRequired => ({
         id: card.uuid,
+        groupUuid: card.groupUuid,
         sm: {
           x: card.smX,
           y: card.smY,

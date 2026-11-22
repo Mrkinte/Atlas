@@ -32,6 +32,7 @@ function flushAsync(): Promise<void> {
 function makeCard(i: string | number): PlatformCardRequired {
   return {
     i,
+    groupUuid: "default",
     x: 0,
     y: 0,
     w: 1,

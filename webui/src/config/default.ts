@@ -12,6 +12,14 @@ export const MIN_GRID_MARGIN = 20;
 export const MOBILE_GRID_COLS = 4;
 export const DESKTOP_GRID_COLS = 16;
 
+export const CARD_GROUP_NAME_MAX_LENGTH = 32;
+
+/** 所有分组栅格共用的 transfer group */
+export const CARD_GROUP_TRANSFER_GROUP = "home";
+
+/** grid-layout-plus 在 maxRows 无限时用 h=1 预校验缩放下限，minH > 1 的卡片会被判定非法 */
+export const HOME_GRID_MAX_ROWS = 1000;
+
 /** px */
 export const DESKTOP_GRID_CONTAINER_MAX_WIDTH = 1364;
 

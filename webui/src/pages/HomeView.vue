@@ -1,11 +1,14 @@
 <script lang="ts" setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import type { GridTransferResult } from "grid-layout-plus";
 import { getCardPlugin } from "@/cards/registry.ts";
-import type { PlatformCardRequired } from "@/cards/types.ts";
+import type { CardGroup, CardPlugin, PlatformCardRequired } from "@/cards/types.ts";
+import { CARD_GROUP_TRANSFER_GROUP } from "@/config/default.ts";
 import { useHomeCards } from "@/composables/useHomeCards.ts";
+import { useHomeGroups } from "@/composables/useHomeGroups.ts";
 import CardSelector from "@/components/CardSelector.vue";
-import HomeGrid from "../components/home/HomeGrid.vue";
+import HomeGroupSection from "@/components/home/HomeGroupSection.vue";
 import HomeEditMenu from "@/components/home/HomeEditMenu.vue";
 import HomeEditTip from "@/components/home/HomeEditTip.vue";
 import HomeBlankMenu from "@/components/home/HomeBlankMenu.vue";
@@ -16,6 +19,7 @@ import {
   platform,
 } from "@/config/platform.ts";
 import { isAuthenticated, logoutSession } from "@/stores/auth.ts";
+import { demoMode } from "@/stores/demo.ts";
 
 /** 卡片 CRUD 编排，数据访问与保存/回滚见 useHomeCards */
 const {
@@ -26,9 +30,20 @@ const {
   handleCardMoved,
   handleCardResized,
   handleCardDuplicate,
+  handleCardTransfer,
   addCard,
   handleCardMenuSelect,
 } = useHomeCards();
+
+const {
+  sortedGroups,
+  load: loadGroups,
+  addGroup,
+  renameGroup,
+  toggleCollapsed,
+  moveGroup,
+  removeGroup,
+} = useHomeGroups();
 
 /** 首次加载完成前不展示空状态，避免请求途中闪一下 */
 const ready = ref(false);
@@ -36,6 +51,14 @@ const ready = ref(false);
 const enableGridEditMode = ref(false);
 const simulateMobile = ref(false);
 const showCardSelector = ref(false);
+const selectedCardId = ref<string | null>(null);
+
+const selectedCard = computed(
+  () => cards.value.find((card) => card.id === selectedCardId.value) ?? null,
+);
+
+/** 添加卡片的目标分组，空白处右键时记录所在分组 */
+const pendingGroupUuid = ref("");
 
 /** 移动端浏览时过滤隐藏卡片；编辑态保留 */
 const displayedCards = computed(() =>
@@ -44,8 +67,20 @@ const displayedCards = computed(() =>
     : platformCards.value,
 );
 
+const cardsByGroup = computed(() => {
+  const map = new Map<CardGroup["id"], PlatformCardRequired[]>();
+  for (const card of displayedCards.value) {
+    const groupCards = map.get(card.groupUuid);
+    if (groupCards) groupCards.push(card);
+    else map.set(card.groupUuid, [card]);
+  }
+  return map;
+});
+
+const hasAnyCard = computed(() => cards.value.length > 0);
+
 const emptyDescription = computed(() =>
-  cards.value.length === 0 ? "暂无任何卡片，请先添加。" : "当前设备暂无可显示的卡片。",
+  hasAnyCard.value ? "当前设备暂无可显示的卡片。" : "暂无任何卡片，请先添加。",
 );
 
 /** 卡片与空白区右键菜单在页面级互斥展示 */
@@ -76,6 +111,9 @@ function handleBlankContextMenu(event: MouseEvent) {
   if (!isAuthenticated.value) return;
 
   event.preventDefault();
+  pendingGroupUuid.value =
+    (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-group-id]")?.dataset
+      .groupId ?? "";
   cardMenu.value?.close();
   blankMenu.value?.open(event);
 }
@@ -99,10 +137,25 @@ async function handleMenuSelect(key: string) {
     case "add":
       showCardSelector.value = true;
       break;
+    case "add-group":
+      await addGroup();
+      break;
     case "toggle-edit":
       await toggleGridEditMode();
       break;
   }
+}
+
+/** 顶部菜单添加卡片不继承空白处右键选中的分组 */
+async function handleTopMenuSelect(key: string) {
+  if (key === "add") {
+    pendingGroupUuid.value = "";
+  }
+  await handleMenuSelect(key);
+}
+
+function handleCardSelect(cardPlugin: CardPlugin) {
+  addCard(cardPlugin, pendingGroupUuid.value || sortedGroups.value[0]?.id || "");
 }
 
 function handleContextMenu(event: MouseEvent, item: PlatformCardRequired) {
@@ -112,20 +165,74 @@ function handleContextMenu(event: MouseEvent, item: PlatformCardRequired) {
   cardMenu.value?.open(event, item, cards.value);
 }
 
+async function handleTransfer(result: GridTransferResult, groupId: string) {
+  await handleCardTransfer(String(result.item.i), groupId, result.item.x, result.item.y);
+}
+
+/** 访客与演示站无法写回，折叠只保留在本地 */
+function handleToggleCollapse(group: CardGroup) {
+  if (isAuthenticated.value && !demoMode.value) {
+    void toggleCollapsed(group);
+    return;
+  }
+  group.collapsed = !group.collapsed;
+}
+
+async function handleRemoveGroup(group: CardGroup) {
+  if (!(await removeGroup(group))) return;
+
+  if (pendingGroupUuid.value === group.id) pendingGroupUuid.value = "";
+  await reload();
+}
+
+function handleSelectCard(i: string) {
+  selectedCardId.value = i;
+}
+
+function handlePageClick() {
+  if (enableGridEditMode.value) selectedCardId.value = null;
+}
+
+function handleDeleteKey(event: KeyboardEvent) {
+  if (!enableGridEditMode.value || event.key !== "Delete") return;
+
+  const card = selectedCard.value;
+  const target = event.target;
+  if (!card) return;
+  if (
+    target instanceof HTMLElement &&
+    target.closest("input, textarea, select, [contenteditable='true']")
+  ) {
+    return;
+  }
+
+  event.preventDefault();
+  selectedCardId.value = null;
+  void handleCardMenuSelect("delete", card);
+}
+
 watch(
   enableGridEditMode,
   (editing) => {
     document.documentElement.classList.toggle(EDITING_ROOT_CLASS, editing);
+    window.removeEventListener("keydown", handleDeleteKey);
+
+    if (editing) {
+      window.addEventListener("keydown", handleDeleteKey);
+    } else {
+      selectedCardId.value = null;
+    }
   },
   { immediate: true },
 );
 
 onBeforeUnmount(() => {
   document.documentElement.classList.remove(EDITING_ROOT_CLASS);
+  window.removeEventListener("keydown", handleDeleteKey);
 });
 
 onMounted(async () => {
-  await load();
+  await Promise.all([load(), loadGroups()]);
   ready.value = true;
 });
 
@@ -136,13 +243,19 @@ watch(isAuthenticated, () => {
 </script>
 
 <template>
-  <div class="home-page" @contextmenu="handleBlankContextMenu">
+  <div class="home-page" @click="handlePageClick" @contextmenu="handleBlankContextMenu">
     <!-- 首页公开访问，编辑入口仅对已登录用户展示 -->
-    <HomeEditMenu v-if="isAuthenticated" :editing="enableGridEditMode" @select="handleMenuSelect" />
+    <HomeEditMenu
+      v-if="isAuthenticated"
+      :editing="enableGridEditMode"
+      @select="handleTopMenuSelect"
+    />
 
-    <HomeEditTip v-if="enableGridEditMode" />
+    <Transition name="edit-tip">
+      <HomeEditTip v-if="enableGridEditMode" />
+    </Transition>
 
-    <CardSelector v-model:show="showCardSelector" @select="addCard" />
+    <CardSelector v-model:show="showCardSelector" @select="handleCardSelect" />
 
     <!-- 卡片超出可视区域时用 Naive UI 的浮层滚动条，避免原生滚动条挤压栅格宽度 -->
     <n-scrollbar>
@@ -151,9 +264,9 @@ watch(isAuthenticated, () => {
           <template #extra>
             <n-flex justify="center">
               <n-button
-                v-if="isAuthenticated && cards.length === 0"
+                v-if="isAuthenticated && !hasAnyCard"
                 type="primary"
-                @click="showCardSelector = true"
+                @click="handleTopMenuSelect('add')"
               >
                 添加卡片
               </n-button>
@@ -169,19 +282,36 @@ watch(isAuthenticated, () => {
           </template>
         </n-empty>
       </div>
-      <HomeGrid
-        :cards="displayedCards"
-        :edit-mode="enableGridEditMode"
-        :simulate-mobile="simulateMobile"
-        @contextmenu="handleContextMenu"
-        @duplicate="handleCardDuplicate"
-        @moved="handleCardMoved"
-        @resized="handleCardResized"
-      >
-        <template #default="{ card }">
-          <component :is="getCardPlugin(card.type)?.display" v-bind="card.config" />
-        </template>
-      </HomeGrid>
+
+      <div v-if="sortedGroups.length" class="home-groups">
+        <HomeGroupSection
+          v-for="(group, index) in sortedGroups"
+          :key="group.id"
+          :cards="cardsByGroup.get(group.id) ?? []"
+          :can-delete="sortedGroups.length > 1"
+          :edit-mode="enableGridEditMode"
+          :first="index === 0"
+          :group="group"
+          :last="index === sortedGroups.length - 1"
+          :selected-id="selectedCardId"
+          :simulate-mobile="simulateMobile"
+          :transfer-group="CARD_GROUP_TRANSFER_GROUP"
+          @contextmenu="handleContextMenu"
+          @duplicate="handleCardDuplicate"
+          @move="moveGroup"
+          @moved="handleCardMoved"
+          @remove="handleRemoveGroup"
+          @rename="renameGroup"
+          @resized="handleCardResized"
+          @select="handleSelectCard"
+          @toggle-collapse="handleToggleCollapse"
+          @transfer="(result) => handleTransfer(result, group.id)"
+        >
+          <template #default="{ card }">
+            <component :is="getCardPlugin(card.type)?.display" v-bind="card.config" />
+          </template>
+        </HomeGroupSection>
+      </div>
     </n-scrollbar>
 
     <HomeCardMenu ref="cardMenu" @select="handleCardMenuSelect" />
@@ -229,5 +359,25 @@ watch(isAuthenticated, () => {
 
 .home-empty :deep(.n-empty) {
   pointer-events: auto;
+}
+
+.home-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  width: 100%;
+}
+
+.edit-tip-enter-active,
+.edit-tip-leave-active {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.edit-tip-enter-from,
+.edit-tip-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 </style>

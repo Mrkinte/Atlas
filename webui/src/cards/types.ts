@@ -10,6 +10,7 @@ export interface LayoutRequired {
 
 export interface CardRequired {
   id: string;
+  groupUuid: string;
   sm: LayoutRequired;
   lg: LayoutRequired;
   minWidth: number;
@@ -24,6 +25,7 @@ export interface CardRequired {
 }
 
 export interface PlatformCardRequired extends LayoutItem {
+  groupUuid: string;
   /** 是否匿名可见；false 表示仅登录可见 */
   isVisible: boolean;
   /** 移动端是否显示 */
@@ -31,6 +33,13 @@ export interface PlatformCardRequired extends LayoutItem {
   /** 卡片类型名，对应 plugin.name */
   type: string;
   config: Record<string, unknown>;
+}
+
+export interface CardGroup {
+  id: string;
+  name: string;
+  sortOrder: number;
+  collapsed: boolean;
 }
 
 export interface CardSaveContext {

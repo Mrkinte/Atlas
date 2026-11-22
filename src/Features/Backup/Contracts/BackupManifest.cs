@@ -23,5 +23,7 @@ public class BackupManifest
 
     public List<BackupCard>? Cards { get; set; }
 
+    public List<BackupCardGroup>? CardGroups { get; set; }
+
     public List<BackupImageInfo>? Images { get; set; }
 }

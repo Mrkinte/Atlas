@@ -24,6 +24,7 @@ public class CardService(
         var card = new CardEntity
         {
             Uuid = request.Uuid,
+            GroupUuid = await ResolveGroupUuidAsync(request.GroupUuid, ct),
             SmX = request.SmX,
             SmY = request.SmY,
             SmWidth = request.SmWidth,
@@ -68,6 +69,7 @@ public class CardService(
         card.IsVisible = request.IsVisible;
         card.MobileVisible = request.MobileVisible;
         card.Type = request.Type;
+        card.GroupUuid = await ResolveGroupUuidAsync(request.GroupUuid, ct);
         card.Data = request.Data?.ToJsonString();
 
         var rows = await fsql.Update<CardEntity>()
@@ -91,5 +93,26 @@ public class CardService(
         return await fsql.Delete<CardEntity>()
             .Where(c => c.Id > 0)
             .ExecuteAffrowsAsync(ct);
+    }
+
+    private async Task<string> ResolveGroupUuidAsync(string? groupUuid, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(groupUuid)) return groupUuid;
+
+        var group = await fsql.Select<CardGroupEntity>()
+            .OrderBy(g => new { g.SortOrder, g.Id })
+            .FirstAsync(ct);
+
+        if (group is not null) return group.Uuid;
+
+        group = new CardGroupEntity
+        {
+            Uuid = Guid.NewGuid().ToString("N"),
+            Name = string.Empty,
+            SortOrder = 0,
+            Collapsed = false
+        };
+        await fsql.Insert(group).ExecuteAffrowsAsync(ct);
+        return group.Uuid;
     }
 }

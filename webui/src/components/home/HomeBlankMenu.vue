@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 import type { DropdownOption } from "naive-ui";
 import AddSquare24Regular from "@vicons/fluent/es/AddSquare24Regular.js";
+import FolderAdd24Regular from "@vicons/fluent/es/FolderAdd24Regular.js";
 import Phone24Regular from "@vicons/fluent/es/Phone24Regular.js";
 import Desktop24Regular from "@vicons/fluent/es/Desktop24Regular.js";
 import Edit24Regular from "@vicons/fluent/es/Edit24Regular.js";
@@ -25,6 +26,11 @@ const options = computed<DropdownOption[]>(() => [
           label: "添加卡片",
           key: "add",
           icon: iconConverter(AddSquare24Regular),
+        },
+        {
+          label: "添加分组",
+          key: "add-group",
+          icon: iconConverter(FolderAdd24Regular),
         },
         { type: "divider" as const, key: "d1" },
         {

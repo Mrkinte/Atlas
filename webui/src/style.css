@@ -1,6 +1,8 @@
 :root {
   --editor-max-width: 640px;
   --border-radius: 8px;
+  /* 禁用用户选择 */
+  user-select: none;
 }
 
 /* 模型加载完成前库才给舞台写定位样式，此前静态节点会占一行高度撑出页面滚动条 */

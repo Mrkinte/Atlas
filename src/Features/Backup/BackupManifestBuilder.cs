@@ -90,7 +90,23 @@ internal static class BackupManifestBuilder
             throw new InvalidRequestException("备份清单缺少 Live2D 配置");
 
         if (sections.HasFlag(BackupSection.Cards)) ValidateCards(manifest.Cards!);
+        if (sections.HasFlag(BackupSection.Cards) && manifest.CardGroups is not null)
+            ValidateCardGroups(manifest.CardGroups);
         if (sections.HasFlag(BackupSection.Images)) ValidateImages(manifest.Images!);
+    }
+
+    private static void ValidateCardGroups(List<BackupCardGroup> groups)
+    {
+        var uuids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var group in groups)
+        {
+            if (group is null || string.IsNullOrWhiteSpace(group.Uuid))
+                throw new InvalidRequestException("备份中存在无效分组");
+
+            if (!uuids.Add(group.Uuid))
+                throw new InvalidRequestException(
+                    $"备份中存在重复分组：{group.Uuid}");
+        }
     }
 
     private static void ValidateCards(List<BackupCard> cards)

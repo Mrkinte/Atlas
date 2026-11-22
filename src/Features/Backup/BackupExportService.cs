@@ -118,6 +118,12 @@ public class BackupExportService(
                     .ToListAsync(ct))
                 .ToResponseList();
             manifest.Cards = cards.Select(BackupCard.FromResponse).ToList();
+
+            manifest.CardGroups = (await fsql.Select<CardGroupEntity>()
+                    .OrderBy(g => new { g.SortOrder, g.Id })
+                    .ToListAsync(ct))
+                .Select(BackupCardGroup.FromEntity)
+                .ToList();
         }
 
         if (sections.HasFlag(BackupSection.Images))

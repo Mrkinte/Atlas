@@ -180,6 +180,46 @@ public class BackupRestoreService(
         IReadOnlyDictionary<string, ZipArchiveEntry> entries,
         CancellationToken ct)
     {
+        var cardGroupEntities = sections.HasFlag(BackupSection.Cards)
+                                && manifest.CardGroups is not null
+            ? manifest.CardGroups
+                .Select(group => new CardGroupEntity
+                {
+                    Uuid = group.Uuid,
+                    Name = group.Name,
+                    SortOrder = group.SortOrder,
+                    Collapsed = group.Collapsed
+                })
+                .OrderBy(g => g.SortOrder)
+                .ToList()
+            : null;
+
+        string? defaultGroupUuid = null;
+        if (sections.HasFlag(BackupSection.Cards))
+        {
+            // 备份不带分组时沿用现有分组；备份分组会被整体替换，不能引用现有分组
+            var defaultGroup = cardGroupEntities is not null
+                ? cardGroupEntities.FirstOrDefault()
+                : await fsql.Select<CardGroupEntity>()
+                    .OrderBy(g => new { g.SortOrder, g.Id })
+                    .FirstAsync(ct);
+
+            if (defaultGroup is null)
+            {
+                defaultGroup = new CardGroupEntity
+                {
+                    Uuid = Guid.NewGuid().ToString("N"),
+                    Name = string.Empty,
+                    SortOrder = 0,
+                    Collapsed = false
+                };
+                cardGroupEntities ??= [];
+                cardGroupEntities.Add(defaultGroup);
+            }
+
+            defaultGroupUuid = defaultGroup.Uuid;
+        }
+
         var cardEntities = sections.HasFlag(BackupSection.Cards)
             ? manifest.Cards!.Select(card => new CardEntity
             {
@@ -197,6 +237,9 @@ public class BackupRestoreService(
                 IsVisible = card.IsVisible,
                 MobileVisible = card.MobileVisible,
                 Type = card.Type,
+                GroupUuid = string.IsNullOrWhiteSpace(card.GroupUuid)
+                    ? defaultGroupUuid
+                    : card.GroupUuid,
                 Data = card.Data?.ToJsonString()
             }).ToList()
             : [];
@@ -234,6 +277,12 @@ public class BackupRestoreService(
 
             if (sections.HasFlag(BackupSection.Cards))
             {
+                if (manifest.CardGroups is not null)
+                    fsql.Delete<CardGroupEntity>().Where(g => g.Id > 0).ExecuteAffrows();
+
+                if (cardGroupEntities is { Count: > 0 })
+                    fsql.Insert(cardGroupEntities).ExecuteAffrows();
+
                 fsql.Delete<CardEntity>().Where(c => c.Id > 0).ExecuteAffrows();
                 if (cardEntities.Count > 0) fsql.Insert(cardEntities).ExecuteAffrows();
             }

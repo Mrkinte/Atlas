@@ -24,6 +24,7 @@ public static class CardMappings
             IsVisible = card.IsVisible,
             MobileVisible = card.MobileVisible,
             Type = card.Type,
+            GroupUuid = card.GroupUuid ?? string.Empty,
             Data = card.Data is null ? null : JsonNode.Parse(card.Data)
         };
     }

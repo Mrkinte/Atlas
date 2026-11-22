@@ -10,6 +10,7 @@ namespace Atlas.Features.Backup;
 [JsonSerializable(typeof(BackupLive2D))]
 [JsonSerializable(typeof(BackupLive2DConfig))]
 [JsonSerializable(typeof(BackupCard))]
+[JsonSerializable(typeof(BackupCardGroup))]
 [JsonSerializable(typeof(Live2DModelConfigResponse))]
 [JsonSerializable(typeof(BackupInspectResponse))]
 [JsonSerializable(typeof(BackupRestoreResponse))]

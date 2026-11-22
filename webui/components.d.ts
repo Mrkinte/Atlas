@@ -23,6 +23,7 @@ declare module 'vue' {
     HomeEditMenu: typeof import('./src/components/home/HomeEditMenu.vue')['default']
     HomeEditTip: typeof import('./src/components/home/HomeEditTip.vue')['default']
     HomeGrid: typeof import('./src/components/home/HomeGrid.vue')['default']
+    HomeGroupSection: typeof import('./src/components/home/HomeGroupSection.vue')['default']
     HostSettings: typeof import('./src/components/settings/HostSettings.vue')['default']
     HttpsSettings: typeof import('./src/components/settings/HttpsSettings.vue')['default']
     ImageLibraryHost: typeof import('./src/components/hosts/ImageLibraryHost.vue')['default']
@@ -77,6 +78,5 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     ServiceProbeProvider: typeof import('./src/components/ServiceProbeProvider.vue')['default']
-    SystemStatusSettings: typeof import('./src/components/settings/SystemStatusSettings.vue')['default']
   }
 }

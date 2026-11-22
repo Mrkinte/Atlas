@@ -45,6 +45,7 @@ public class AppInitializer(
         typeof(RefreshTokenEntity),
         typeof(RevokedTokenEntity),
         typeof(CardEntity),
+        typeof(CardGroupEntity),
         typeof(ImageEntity),
         typeof(SettingsEntity),
         typeof(Live2DModelConfigEntity)
@@ -58,6 +59,32 @@ public class AppInitializer(
     {
         // 与逐个调用泛型 SyncStructure<T>() 等价：FreeSql 的非泛型重载按同一套实体元数据建表
         fsql.CodeFirst.SyncStructure(SchemaEntityTypes);
+        EnsureDefaultCardGroup();
+    }
+
+    private void EnsureDefaultCardGroup()
+    {
+        var group = fsql.Select<CardGroupEntity>()
+            .OrderBy(g => new { g.SortOrder, g.Id })
+            .First();
+
+        if (group is null)
+        {
+            group = new CardGroupEntity
+            {
+                Uuid = Guid.NewGuid().ToString("N"),
+                Name = string.Empty,
+                SortOrder = 0,
+                Collapsed = false
+            };
+            fsql.Insert(group).ExecuteAffrows();
+        }
+
+        // 默认分组必须存在，否则没有分组归属的历史卡片无法展示
+        fsql.Update<CardEntity>()
+            .Set(c => c.GroupUuid, group.Uuid)
+            .Where(c => c.GroupUuid == null || c.GroupUuid == string.Empty)
+            .ExecuteAffrows();
     }
 
     public void Initialize()

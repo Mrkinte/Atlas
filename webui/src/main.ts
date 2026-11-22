@@ -1,5 +1,6 @@
 import "@/cards";
 import { createApp } from "vue";
+import "grid-layout-plus/style.css";
 import "@/style.css";
 import App from "@/App.vue";
 import router from "@/router";

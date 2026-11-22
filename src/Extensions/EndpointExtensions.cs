@@ -23,6 +23,7 @@ public static class EndpointExtensions
         app.MapAuthEndpoints();
         app.MapDemoEndpoints();
         app.MapCardEndpoints();
+        app.MapCardGroupEndpoints();
         app.MapImageEndpoints();
         app.MapLive2DEndpoints();
         app.MapSettingsEndpoints();

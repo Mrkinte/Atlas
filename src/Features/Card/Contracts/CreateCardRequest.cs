@@ -17,4 +17,5 @@ public sealed record CreateCardRequest(
     bool IsVisible,
     bool MobileVisible,
     string Type,
-    JsonNode? Data);
+    JsonNode? Data,
+    string GroupUuid);

@@ -574,6 +574,141 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/card-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CardGroupResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateCardGroupRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CardGroupResponse"];
+                    };
+                };
+            };
+        };
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/card-groups/{groupId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    groupId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateCardGroupRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CardGroupResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    groupId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/images": {
         parameters: {
             query?: never;
@@ -1350,6 +1485,13 @@ export interface components {
             live2DConfigs: number;
             settings: boolean;
         };
+        CardGroupResponse: {
+            uuid: string;
+            name: string;
+            /** Format: int32 */
+            sortOrder: number;
+            collapsed: boolean;
+        };
         CardResponse: {
             uuid: string;
             /** Format: int32 */
@@ -1375,6 +1517,7 @@ export interface components {
             isVisible: boolean;
             mobileVisible: boolean;
             type: string;
+            groupUuid: string;
             data?: null | components["schemas"]["JsonNode"];
         };
         CertificateInfo: {
@@ -1390,6 +1533,10 @@ export interface components {
         ChangeUsernameRequest: {
             newUsername: string;
             password: string;
+        };
+        CreateCardGroupRequest: {
+            uuid: string;
+            name: string;
         };
         CreateCardRequest: {
             uuid: string;
@@ -1417,6 +1564,7 @@ export interface components {
             mobileVisible: boolean;
             type: string;
             data: null | components["schemas"]["JsonNode"];
+            groupUuid: string;
         };
         DemoStatusResponse: {
             enabled: boolean;
@@ -1564,6 +1712,12 @@ export interface components {
             id: string;
             name: string;
         };
+        UpdateCardGroupRequest: {
+            name: string;
+            /** Format: int32 */
+            sortOrder: number;
+            collapsed: boolean;
+        };
         UpdateCardRequest: {
             uuid: string;
             /** Format: int32 */
@@ -1590,6 +1744,7 @@ export interface components {
             mobileVisible: boolean;
             type: string;
             data: null | components["schemas"]["JsonNode"];
+            groupUuid: string;
         };
         UpdateCheckResponse: {
             currentVersion: string;

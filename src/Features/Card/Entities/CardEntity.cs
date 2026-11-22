@@ -36,5 +36,7 @@ public class CardEntity
 
     [Column(StringLength = 32)] public string Type { get; set; } = string.Empty;
 
+    [Column(StringLength = 36)] public string? GroupUuid { get; set; }
+
     public string? Data { get; set; }
 }

@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { useDialog } from "naive-ui";
 import { useAppMessage } from "@/composables/useAppMessage.ts";
 import { deleteAllCards } from "@/composables/useCards.ts";
+import { deleteAllGroups } from "@/composables/useCardGroups.ts";
 import { SETTINGS_LIMITS } from "@/config/default.ts";
 import { useSettingsSave } from "@/composables/useSettingsSave.ts";
 import { settings } from "@/stores/settings.ts";
@@ -13,6 +14,7 @@ const dialog = useDialog();
 const saveSiteSettings = useSettingsSave();
 
 const deletingCards = ref(false);
+const deletingGroups = ref(false);
 
 function handleDesktopCols(value: number | null) {
   if (value !== null) void saveSiteSettings({ desktopCols: value });
@@ -33,11 +35,25 @@ function handleDeleteCards() {
 
   dialog.warning({
     title: "删除所有卡片",
-    content: "将删除首页的全部卡片，且无法撤销。建议先使用上方「导出卡片数据」备份。",
+    content: "将删除首页的全部卡片，且无法撤销。建议先备份。",
     positiveText: "全部删除",
     negativeText: "取消",
     onPositiveClick: () => {
       void runDeleteCards();
+    },
+  });
+}
+
+function handleDeleteGroups() {
+  if (deletingGroups.value) return;
+
+  dialog.warning({
+    title: "删除所有分组",
+    content: "将删除首页的全部分组（包括卡片），且无法撤销。建议先备份。",
+    positiveText: "全部删除",
+    negativeText: "取消",
+    onPositiveClick: () => {
+      void runDeleteGroups();
     },
   });
 }
@@ -53,6 +69,20 @@ async function runDeleteCards() {
     message.success("已删除所有卡片");
   } finally {
     deletingCards.value = false;
+  }
+}
+
+async function runDeleteGroups() {
+  deletingGroups.value = true;
+  try {
+    const error = await deleteAllGroups();
+    if (error) {
+      message.error(error);
+      return;
+    }
+    message.success("已删除所有分组");
+  } finally {
+    deletingGroups.value = false;
   }
 }
 </script>
@@ -125,6 +155,20 @@ async function runDeleteCards() {
       </div>
       <div class="settings__row-control">
         <n-button :loading="deletingCards" secondary type="error" @click="handleDeleteCards">
+          全部删除
+        </n-button>
+      </div>
+    </div>
+
+    <n-divider class="settings__divider" />
+
+    <div class="settings__row">
+      <div class="settings__row-main">
+        <div class="settings__row-label">删除所有分组</div>
+        <div class="settings__row-desc">清空首页的全部分组（包括卡片），操作不可撤销</div>
+      </div>
+      <div class="settings__row-control">
+        <n-button :loading="deletingGroups" secondary type="error" @click="handleDeleteGroups">
           全部删除
         </n-button>
       </div>

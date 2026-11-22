@@ -38,11 +38,23 @@ public class BackupRoundTripTests
         WriteUploadFile(host, Path.Combine("live2d", "hiyori", "hiyori.texture.png"), textureBytes);
 
         const string modelPath = "/uploads/live2d/hiyori/hiyori.model3.json";
+        // 初始化留下的默认分组先清掉，让分组快照只反映本用例的数据
+        host.Fsql.Delete<CardGroupEntity>().Where(g => g.Id > 0).ExecuteAffrows();
+        host.Fsql.Insert(new CardGroupEntity
+        {
+            Uuid = "group-1", Name = "常用", SortOrder = 0, Collapsed = false
+        }).ExecuteAffrows();
+        host.Fsql.Insert(new CardGroupEntity
+        {
+            Uuid = "group-2", Name = "其他", SortOrder = 1, Collapsed = true
+        }).ExecuteAffrows();
+
         var cards = new[]
         {
             new CardEntity
             {
-                Uuid = "card-1", SmX = 0, SmY = 0, SmWidth = 2, SmHeight = 2,
+                Uuid = "card-1", GroupUuid = "group-1",
+                SmX = 0, SmY = 0, SmWidth = 2, SmHeight = 2,
                 LgX = 1, LgY = 1, LgWidth = 4, LgHeight = 2,
                 MinWidth = 120, MinHeight = 90, IsVisible = true, MobileVisible = true,
                 Type = "clock",
@@ -50,7 +62,8 @@ public class BackupRoundTripTests
             },
             new CardEntity
             {
-                Uuid = "card-2", SmX = 2, SmY = 0, SmWidth = 1, SmHeight = 1,
+                Uuid = "card-2", GroupUuid = "group-2",
+                SmX = 2, SmY = 0, SmWidth = 1, SmHeight = 1,
                 LgX = 5, LgY = 0, LgWidth = 2, LgHeight = 1,
                 MinWidth = 60, MinHeight = 60, IsVisible = false, MobileVisible = false,
                 Type = "service",
@@ -95,6 +108,8 @@ public class BackupRoundTripTests
 
         // —— 快照导出时刻的全部状态，作为恢复后的对账基准 ——
         var settingsBefore = await host.Settings.GetAsync();
+        var groupsBefore = host.Fsql.Select<CardGroupEntity>()
+            .OrderBy(g => new { g.SortOrder, g.Id }).ToList();
         var cardsBefore = host.Fsql.Select<CardEntity>().OrderBy(c => c.Uuid).ToList();
         var imagesBefore = host.Fsql.Select<ImageEntity>().OrderBy(i => i.RelativePath).ToList();
         var live2dBefore = host.Fsql.Select<Live2DModelConfigEntity>().OrderBy(c => c.ModelPath).ToList();
@@ -146,6 +161,15 @@ public class BackupRoundTripTests
             cardsAfter.Select(Describe));
         // 入侵者卡片被清掉，只剩备份里的两张
         Assert.Equal(2, cardsAfter.Count);
+
+        var groupsAfter = host.Fsql.Select<CardGroupEntity>()
+            .OrderBy(g => new { g.SortOrder, g.Id }).ToList();
+        Assert.Equal(
+            groupsBefore.Select(g => (g.Uuid, g.Name, g.SortOrder, g.Collapsed)),
+            groupsAfter.Select(g => (g.Uuid, g.Name, g.SortOrder, g.Collapsed)));
+        // 分组整体替换后，卡片仍归属原分组
+        Assert.Equal("group-1", cardsAfter.Single(c => c.Uuid == "card-1").GroupUuid);
+        Assert.Equal("group-2", cardsAfter.Single(c => c.Uuid == "card-2").GroupUuid);
 
         var imagesAfter = host.Fsql.Select<ImageEntity>().OrderBy(i => i.RelativePath).ToList();
         Assert.Equal(
@@ -266,11 +290,12 @@ public class BackupRoundTripTests
     /// <summary>卡片逐字段投影；Data 用 ToJsonString 归一化，规避 JSON 往返时的空格差异</summary>
     private static (string Uuid, int SmX, int SmY, int SmWidth, int SmHeight, int LgX, int LgY,
         int LgWidth, int LgHeight, int MinWidth, int MinHeight, bool IsVisible, bool? MobileVisible,
-        string Type, string? Data) Describe(CardEntity card)
+        string Type, string? GroupUuid, string? Data) Describe(CardEntity card)
     {
         return (card.Uuid, card.SmX, card.SmY, card.SmWidth, card.SmHeight,
             card.LgX, card.LgY, card.LgWidth, card.LgHeight,
             card.MinWidth, card.MinHeight, card.IsVisible, card.MobileVisible, card.Type,
+            card.GroupUuid,
             JsonNode.Parse(card.Data ?? "null")?.ToJsonString());
     }
 

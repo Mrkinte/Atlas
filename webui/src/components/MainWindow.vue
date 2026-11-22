@@ -51,14 +51,14 @@ function handleCycleTheme() {
     <n-layout>
       <n-layout-header class="main-header">
         <n-flex vertical>
-          <n-flex :size="12" align="center">
+          <n-flex :size="12" align="center" @click="handleGotoHome">
             <img
               v-if="settings.showHeaderLogo"
               :src="settings.favicon || '/favicon.svg'"
               :alt="settings.siteTitle"
               class="main-header__logo"
             />
-            <div class="main-header__brand" @click="handleGotoHome">
+            <div class="main-header__brand">
               {{ settings.siteTitle }}
             </div>
           </n-flex>
@@ -126,6 +126,7 @@ function handleCycleTheme() {
   width: 32px;
   height: 32px;
   object-fit: contain;
+  cursor: pointer;
 }
 
 .main-header__brand {

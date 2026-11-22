@@ -10,6 +10,7 @@
         <type fullname="Atlas.Features.Auth.Entities.RefreshTokenEntity" preserve="all"/>
         <type fullname="Atlas.Features.Auth.Entities.RevokedTokenEntity" preserve="all"/>
         <type fullname="Atlas.Features.Card.Entities.CardEntity" preserve="all"/>
+        <type fullname="Atlas.Features.Card.Entities.CardGroupEntity" preserve="all"/>
         <type fullname="Atlas.Features.Image.Entities.ImageEntity" preserve="all"/>
         <type fullname="Atlas.Features.Settings.Entities.SettingsEntity" preserve="all"/>
         <type fullname="Atlas.Features.Live2D.Entities.Live2DModelConfigEntity" preserve="all"/>

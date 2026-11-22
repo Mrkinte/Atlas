@@ -33,5 +33,7 @@ public class CardResponse
 
     [Required] public string Type { get; set; } = string.Empty;
 
+    [Required] public string GroupUuid { get; set; } = string.Empty;
+
     public JsonNode? Data { get; set; }
 }

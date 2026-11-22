@@ -7,6 +7,10 @@ namespace Atlas.Features.Card;
 [JsonSerializable(typeof(List<CardResponse>))]
 [JsonSerializable(typeof(CreateCardRequest))]
 [JsonSerializable(typeof(UpdateCardRequest))]
+[JsonSerializable(typeof(CardGroupResponse))]
+[JsonSerializable(typeof(List<CardGroupResponse>))]
+[JsonSerializable(typeof(CreateCardGroupRequest))]
+[JsonSerializable(typeof(UpdateCardGroupRequest))]
 internal partial class CardJsonContext : JsonSerializerContext;
 
 public static class CardJsonContextRegistration

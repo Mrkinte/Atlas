@@ -16,6 +16,7 @@ type TestLayout = { x?: number; y: number; width?: number; height: number };
 function makeCard(id: string, sm: TestLayout, lg: TestLayout): CardRequired {
   return {
     id,
+    groupUuid: "default",
     sm: { x: sm.x ?? 0, y: sm.y, width: sm.width ?? 1, height: sm.height },
     lg: { x: lg.x ?? 0, y: lg.y, width: lg.width ?? 1, height: lg.height },
     minWidth: 1,

@@ -1,11 +1,31 @@
 <script lang="ts" setup>
 import type { CSSProperties } from "vue";
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { GridItem, GridLayout } from "grid-layout-plus";
-import { COL_WIDTH, GRID_GAP_Y, MOBILE_GRID_COLS, ROW_HEIGHT } from "@/config/default.ts";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useThemeVars } from "naive-ui";
+import {
+  GridItem,
+  GridLayout,
+  correctBounds,
+  noCompactor,
+  normalizeLayout,
+  type GridTransferResult,
+  type InteractionStartPayload,
+  type Layout,
+  type LayoutUpdateMeta,
+  type ReadonlyLayout,
+  type ResizeConfig,
+  type TransferConfig,
+} from "grid-layout-plus";
+import {
+  COL_WIDTH,
+  GRID_GAP_Y,
+  HOME_GRID_MAX_ROWS,
+  MOBILE_GRID_COLS,
+  ROW_HEIGHT,
+} from "@/config/default.ts";
 import { getCardPlugin } from "@/cards/registry.ts";
 import type { PlatformCardRequired } from "@/cards/types.ts";
-import { desktopGridContainerMinWidth, gridMargin } from "@/utils/cardLayoutCalculate.ts";
+import { gridMargin } from "@/utils/cardLayoutCalculate.ts";
 import { settings } from "@/stores/settings.ts";
 import { platform } from "@/config/platform.ts";
 import { useServiceProbe } from "@/composables/useServiceProbe.ts";
@@ -14,14 +34,23 @@ import ServiceProbeProvider from "@/components/ServiceProbeProvider.vue";
 const props = defineProps<{
   cards: PlatformCardRequired[];
   editMode: boolean;
-  simulateMobile: boolean;
+  selectedId: string | null;
+  transferGroup: string;
 }>();
+
+const resizeConfig: ResizeConfig = {
+  handles: ["n", "e", "s", "w", "ne", "nw", "se", "sw"],
+};
+
+const themeVars = useThemeVars();
 
 const emit = defineEmits<{
   moved: [i: string, newX: number, newY: number];
   resized: [i: string, newH: number, newW: number];
   contextmenu: [event: MouseEvent, item: PlatformCardRequired];
   duplicate: [card: PlatformCardRequired, x: number, y: number];
+  select: [i: string];
+  transfer: [result: GridTransferResult];
 }>();
 
 defineSlots<{
@@ -31,32 +60,65 @@ defineSlots<{
 /** 首页打开后自动探测所有 ServiceCard 的目标地址 */
 const { entries: probeEntries } = useServiceProbe(() => props.cards);
 
-/** grid-layout 会就地修改 item，必须是可写引用 */
-const layout = ref<PlatformCardRequired[]>(props.cards);
-watch(
-  () => props.cards,
-  (cards) => {
-    layout.value = cards;
-  },
-);
-
-/** grid-layout 宽度 & 动态水平 margin：(宽度 - 列宽 * 列数) / (列数 + 1)，最小 20 */
-const gridRef = ref<InstanceType<typeof GridLayout> | null>(null);
-const containerWidth = ref(0);
-let resizeObserver: ResizeObserver | null = null;
-
 const isMobile = computed(() => platform.value === "mobile");
 
 const colNum = computed(() => (isMobile.value ? MOBILE_GRID_COLS : settings.desktopCols));
 
+// grid-layout-plus 初始布局校验会拒绝越界/重叠，旧数据或列数调整后必须先归位，否则首页渲染中断
+function buildLayout(cards: readonly PlatformCardRequired[], cols: number): Layout {
+  const items: Layout = cards.map((card) => ({
+    i: card.i,
+    x: card.x,
+    y: card.y,
+    w: Math.min(card.w, cols),
+    h: card.h,
+    minW: Math.min(card.minW ?? 1, cols),
+    minH: card.minH,
+  }));
+
+  const bounded = correctBounds(items, { cols });
+
+  return normalizeLayout(bounded, { cols, collisionMode: "push", compactor: noCompactor });
+}
+
+const layout = ref<Layout>(buildLayout(props.cards, colNum.value));
+
+const cardsById = computed(
+  () => new Map(props.cards.map((card) => [String(card.i), card] as const)),
+);
+
+/** 跨组转移先提交目标布局，卡片数据要等上层响应 transfer 后才补上 */
+const gridItems = computed(() =>
+  layout.value.flatMap((item) => {
+    const card = cardsById.value.get(String(item.i));
+    return card ? [{ item, card }] : [];
+  }),
+);
+
+watch([() => props.cards, colNum], async ([cards]) => {
+  const cols = colNum.value;
+  // 等库先应用新的列数，否则新平台的布局会按旧 cols 校验被拒
+  await nextTick();
+  layout.value = buildLayout(cards, cols);
+});
+
+const gridHost = ref<HTMLElement | null>(null);
+const containerWidth = ref(0);
+let resizeObserver: ResizeObserver | null = null;
+
+/** (宽度 - 列宽 * 列数) / (列数 + 1)，最小 20；同时作为 gap 与 containerPadding，栅格线才会和列宽对齐 */
 const dynamicMargin = computed(() => gridMargin(containerWidth.value, colNum.value));
 
-/** 与库内部 Re() 口径一致，用于把像素位移换算成栅格位移 */
+/** 与库内部列宽口径一致，用于把像素位移换算成栅格位移 */
 const colWidth = computed(() => {
   const cols = colNum.value;
   if (cols <= 0) return 0;
   return (containerWidth.value - dynamicMargin.value * (cols + 1)) / cols;
 });
+
+const transferConfig = computed<TransferConfig | undefined>(() =>
+  props.editMode ? { group: props.transferGroup } : undefined,
+);
 
 /** 按住 Ctrl 时禁用库自带拖拽，交给副本拖拽接管 */
 const ctrlHeld = ref(false);
@@ -73,6 +135,11 @@ type DuplicateState = {
   top: number;
   width: number;
   height: number;
+  /** 源卡片在栅格中的位置与尺寸 */
+  sourceX: number;
+  sourceY: number;
+  sourceW: number;
+  sourceH: number;
 };
 
 const duplicate = ref<DuplicateState | null>(null);
@@ -116,10 +183,12 @@ function handleDuplicatePointerDown(event: PointerEvent) {
   const itemEl = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-card-id]");
   if (!itemEl) return;
 
-  const card = layout.value.find((it) => it.i === itemEl.dataset.cardId);
-  if (!card) return;
+  const id = itemEl.dataset.cardId ?? "";
+  const card = cardsById.value.get(id);
+  const item = layout.value.find((entry) => String(entry.i) === id);
+  if (!card || !item) return;
 
-  // 阻止库的拖拽与文本选择；实际是否启动还取决于 ctrlHeld 已让 isDraggable 关闭
+  // 阻止库的拖拽与文本选择；Ctrl 按住时栅格级 isDraggable 已关闭
   event.preventDefault();
   event.stopPropagation();
 
@@ -135,6 +204,10 @@ function handleDuplicatePointerDown(event: PointerEvent) {
     top: rect.top,
     width: rect.width,
     height: rect.height,
+    sourceX: item.x,
+    sourceY: item.y,
+    sourceW: item.w,
+    sourceH: item.h,
   };
 
   window.addEventListener("pointermove", handleDuplicatePointerMove, true);
@@ -163,10 +236,10 @@ function handleDuplicatePointerUp(event: PointerEvent) {
 
   const colPitch = colWidth.value + dynamicMargin.value;
   const rowPitch = ROW_HEIGHT + GRID_GAP_Y;
-  const maxX = Math.max(0, colNum.value - d.card.w);
-  const targetX = Math.max(0, Math.min(maxX, d.card.x + Math.round(deltaX / colPitch)));
-  const targetY = Math.max(0, d.card.y + Math.round(deltaY / rowPitch));
-  const pos = findFreeSlot(layout.value, targetX, targetY, d.card.w, d.card.h, maxX);
+  const maxX = Math.max(0, colNum.value - d.sourceW);
+  const targetX = Math.max(0, Math.min(maxX, d.sourceX + Math.round(deltaX / colPitch)));
+  const targetY = Math.max(0, d.sourceY + Math.round(deltaY / rowPitch));
+  const pos = findFreeSlot(layout.value, targetX, targetY, d.sourceW, d.sourceH, maxX);
 
   emit("duplicate", d.card, pos.x, pos.y);
 }
@@ -182,7 +255,7 @@ function endDuplicate() {
  * 从目标位置向下找最近的空位；同一行内优先取离目标最近的一列
  */
 function findFreeSlot(
-  cards: PlatformCardRequired[],
+  items: Layout,
   targetX: number,
   targetY: number,
   w: number,
@@ -190,9 +263,9 @@ function findFreeSlot(
   maxX: number,
 ) {
   const overlaps = (x: number, y: number) =>
-    cards.some((c) => x < c.x + c.w && x + w > c.x && y < c.y + c.h && y + h > c.y);
+    items.some((c) => x < c.x + c.w && x + w > c.x && y < c.y + c.h && y + h > c.y);
 
-  const bottom = cards.reduce((max, c) => Math.max(max, c.y + c.h), targetY);
+  const bottom = items.reduce((max, c) => Math.max(max, c.y + c.h), targetY);
   const xs = Array.from({ length: maxX + 1 }, (_, x) => x).sort(
     (a, b) => Math.abs(a - targetX) - Math.abs(b - targetX),
   );
@@ -206,35 +279,72 @@ function findFreeSlot(
   return { x: Math.min(targetX, maxX), y: bottom };
 }
 
+function handleLayoutUpdated(next: ReadonlyLayout, meta: LayoutUpdateMeta) {
+  if (meta.source !== "interaction") return;
+
+  for (const item of next) {
+    const card = cardsById.value.get(String(item.i));
+    if (!card) continue;
+    if (card.x !== item.x || card.y !== item.y) {
+      emit("moved", String(item.i), item.x, item.y);
+    }
+    if (card.w !== item.w || card.h !== item.h) {
+      emit("resized", String(item.i), item.h, item.w);
+    }
+  }
+}
+
+function handleContextMenu(event: MouseEvent, card: PlatformCardRequired) {
+  emit("contextmenu", event, card);
+}
+
+function handleSelect(card: PlatformCardRequired) {
+  if (!props.editMode) return;
+  emit("select", String(card.i));
+}
+
+function handleTransfer(result: GridTransferResult) {
+  if (!layout.value.some((item) => item.i === result.item.i)) return;
+  emit("transfer", result);
+}
+
+function handleGridError(error: unknown) {
+  console.error("[home-grid]", error);
+}
+
 /** 栅格线：列间距 = 列宽 + 水平 margin，行间距 = 行高 + 纵向 margin */
 const gridGuides = computed(() => ({
+  "--home-grid-selected-color": themeVars.value.primaryColor,
   "--vgl-guide-margin-x": `${dynamicMargin.value}px`,
   "--vgl-guide-margin-y": `${GRID_GAP_Y}px`,
   "--vgl-guide-col-pitch": `${COL_WIDTH + dynamicMargin.value}px`,
   "--vgl-guide-row-pitch": `${ROW_HEIGHT + GRID_GAP_Y}px`,
 }));
 
-const gridStyle = computed(() => [
-  !isMobile.value
-    ? {
-        width: "100%",
-        "min-width": `${desktopGridContainerMinWidth(settings.desktopCols)}px`,
-        "max-width": settings.desktopGridFullWidth
-          ? "100%"
-          : `${settings.desktopGridContainerMaxWidth}px`,
-      }
-    : {
-        width: "100%",
-      },
-  gridGuides.value,
-]);
+// 编辑态空分组保留一行高度，跨组拖拽才有可命中的落点
+const emptyGridStyle = computed<CSSProperties>(() =>
+  props.editMode && props.cards.length === 0
+    ? { minHeight: `${ROW_HEIGHT + GRID_GAP_Y * 2}px` }
+    : {},
+);
 
-const simulateMobileStyle = computed(() => [
-  {
-    width: "480px",
-  },
-  gridGuides.value,
-]);
+// 向下拖动时候选位置会把所在栅格撑高，后面的分组被推远；交互期间锁住起始高度
+const dragHeight = ref<number | null>(null);
+
+const gridFrameStyle = computed<CSSProperties>(() => ({
+  ...emptyGridStyle.value,
+  ...(dragHeight.value === null ? {} : { maxHeight: `${dragHeight.value}px` }),
+}));
+
+function handleInteractionStart(payload: InteractionStartPayload) {
+  if (payload.type !== "drag") return;
+  const grid = gridHost.value?.querySelector<HTMLElement>(".vgl-layout");
+  dragHeight.value = grid ? grid.getBoundingClientRect().height : null;
+}
+
+function handleInteractionEnd() {
+  dragHeight.value = null;
+}
 
 /** 编辑模式才跟踪 Ctrl 与 Esc，退出时结束可能残留的拖拽 */
 watch(
@@ -257,27 +367,25 @@ watch(
 );
 
 onMounted(() => {
-  // grid-layout 的根节点是内部的 div.vgl-layout；offsetWidth 与库计算列宽的口径一致
-  const el = gridRef.value?.$el as HTMLElement | undefined;
-  if (el) {
-    containerWidth.value = el.offsetWidth;
+  const host = gridHost.value;
+  if (!host) return;
 
-    // 捕获阶段接管 Ctrl 拖拽，先于库内部的 pointerdown 监听
-    el.addEventListener("pointerdown", handleDuplicatePointerDown, true);
+  containerWidth.value = host.offsetWidth;
 
-    resizeObserver = new ResizeObserver(() => {
-      containerWidth.value = el.offsetWidth;
-    });
-    resizeObserver.observe(el);
-  }
+  // 捕获阶段接管 Ctrl 拖拽，先于库内部的 pointerdown 监听
+  host.addEventListener("pointerdown", handleDuplicatePointerDown, true);
+
+  resizeObserver = new ResizeObserver(() => {
+    containerWidth.value = host.offsetWidth;
+  });
+  resizeObserver.observe(host);
 });
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect();
   resizeObserver = null;
 
-  const el = gridRef.value?.$el as HTMLElement | undefined;
-  el?.removeEventListener("pointerdown", handleDuplicatePointerDown, true);
+  gridHost.value?.removeEventListener("pointerdown", handleDuplicatePointerDown, true);
 
   window.removeEventListener("keydown", handleCtrlKeyDown);
   window.removeEventListener("keyup", handleCtrlKeyUp);
@@ -287,63 +395,88 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <grid-layout
-    ref="gridRef"
-    v-model:layout="layout"
+  <div
+    ref="gridHost"
     :class="{ 'grid-guides': editMode }"
-    :col-num="colNum"
-    :is-draggable="editMode"
-    :is-resizable="editMode"
-    :margin="[dynamicMargin, GRID_GAP_Y]"
-    :prevent-collision="true"
-    :row-height="ROW_HEIGHT"
-    :style="simulateMobile ? simulateMobileStyle : gridStyle"
-    :use-css-transforms="true"
-    :vertical-compact="false"
+    :style="gridGuides"
+    class="home-grid-host"
   >
-    <grid-item
-      v-for="card in layout"
-      :key="card.i"
-      :class="{ 'card-item__editing': editMode }"
-      :data-card-id="card.i"
-      :h="card.h"
-      :i="card.i"
+    <grid-layout
+      v-model:layout="layout"
+      class="home-grid"
+      :col-num="colNum"
+      :compactor="noCompactor"
+      :container-padding="[dynamicMargin, GRID_GAP_Y]"
+      :gap="[dynamicMargin, GRID_GAP_Y]"
       :is-draggable="editMode && !ctrlHeld"
-      :minH="card.minH"
-      :minW="card.minW"
-      :w="card.w"
-      :x="card.x"
-      :y="card.y"
-      @moved="(i, newX, newY) => emit('moved', i, newX, newY)"
-      @resized="(i, newH, newW) => emit('resized', i, newH, newW)"
-      @contextmenu.prevent.stop="(event: MouseEvent) => emit('contextmenu', event, card)"
+      :is-resizable="editMode"
+      :max-rows="HOME_GRID_MAX_ROWS"
+      :resize-config="resizeConfig"
+      :row-height="ROW_HEIGHT"
+      :style="gridFrameStyle"
+      :transfer-config="transferConfig"
+      collision-mode="push"
+      @error="handleGridError"
+      @interaction-end="handleInteractionEnd"
+      @interaction-start="handleInteractionStart"
+      @layout-updated="handleLayoutUpdated"
+      @transfer="handleTransfer"
     >
-      <div v-if="editMode && (!card.isVisible || !card.mobileVisible)" class="card-item__tags">
-        <n-tag v-if="!card.isVisible" size="tiny" type="primary"> 仅登录可见 </n-tag>
-        <n-tag v-if="!card.mobileVisible" size="tiny" type="warning"> 移动端隐藏 </n-tag>
-      </div>
-      <!-- 探测结果按格子注入，由卡片自行展示 -->
-      <ServiceProbeProvider :entry="probeEntries.get(String(card.i))">
-        <div :class="{ 'card-item__content--locked': editMode }" class="card-item__content">
-          <slot :card="card" />
+      <grid-item
+        v-for="{ item, card } in gridItems"
+        :key="item.i"
+        :class="{
+          'card-item__editing': editMode,
+          'card-item__selected': editMode && String(item.i) === selectedId,
+        }"
+        :data-card-id="item.i"
+        :i="item.i"
+        @click.stop="handleSelect(card)"
+        @contextmenu.prevent.stop="(event: MouseEvent) => handleContextMenu(event, card)"
+      >
+        <div v-if="editMode && (!card.isVisible || !card.mobileVisible)" class="card-item__tags">
+          <n-tag v-if="!card.isVisible" size="tiny" type="primary"> 仅登录可见 </n-tag>
+          <n-tag v-if="!card.mobileVisible" size="tiny" type="warning"> 移动端隐藏 </n-tag>
         </div>
-      </ServiceProbeProvider>
-    </grid-item>
+        <!-- 探测结果按格子注入，由卡片自行展示 -->
+        <ServiceProbeProvider :entry="probeEntries.get(String(card.i))">
+          <div :class="{ 'card-item__content--locked': editMode }" class="card-item__content">
+            <slot :card="card" />
+          </div>
+        </ServiceProbeProvider>
+      </grid-item>
 
-    <!-- Ctrl 拖拽复制时的副本预览：固定在视口坐标上跟随指针，不参与栅格布局 -->
-    <div v-if="duplicate" :style="ghostStyle" class="duplicate-ghost">
-      <component :is="getCardPlugin(duplicate.card.type)?.display" v-bind="duplicate.card.config" />
-    </div>
-  </grid-layout>
+      <!-- Ctrl 拖拽复制时的副本预览：固定在视口坐标上跟随指针，不参与栅格布局 -->
+      <div v-if="duplicate" :style="ghostStyle" class="duplicate-ghost">
+        <component
+          :is="getCardPlugin(duplicate.card.type)?.display"
+          v-bind="duplicate.card.config"
+        />
+      </div>
+    </grid-layout>
+  </div>
 </template>
 
 <style scoped>
+.home-grid-host {
+  position: relative;
+  width: 100%;
+}
+
+.home-grid {
+  width: 100%;
+}
+
 .card-item__editing {
   border: 1px dashed;
   border-radius: var(--border-radius);
   background-color: rgba(127, 127, 127, 0.2);
   /* 编辑态下由自己处理触摸拖拽，避免浏览器接管为滚动 / 下拉刷新 */
   touch-action: none;
+}
+
+.card-item__selected {
+  border-color: var(--home-grid-selected-color);
 }
 
 .card-item__content {

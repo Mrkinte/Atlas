@@ -281,6 +281,39 @@ public class BackupSectionTests
         Assert.Equal("keep", host.Fsql.Select<CardEntity>().First().Uuid);
     }
 
+    [Fact]
+    public async Task 恢复不含分组字段的旧备份时保留现有分组并把卡片归入默认分组()
+    {
+        using var host = new TestHost();
+        host.InitializeSchema();
+
+        host.Fsql.Delete<CardGroupEntity>().Where(g => g.Id > 0).ExecuteAffrows();
+        host.Fsql.Insert(new CardGroupEntity
+        {
+            Uuid = "g-default", Name = "默认", SortOrder = 0, Collapsed = false
+        }).ExecuteAffrows();
+        host.Fsql.Insert(new CardGroupEntity
+        {
+            Uuid = "g-other", Name = "其他", SortOrder = 1, Collapsed = true
+        }).ExecuteAffrows();
+
+        var manifest = """
+                       {"version":1,"sections":["cards"],
+                        "cards":[{"uuid":"old-card","type":"clock","minWidth":1,"minHeight":1}]}
+                       """;
+        var zip = TestZip.CreateArchive((TestZip.ManifestEntryName, TestZip.Utf8(manifest)));
+
+        var response = await host.Backup.RestoreAsync(
+            TestZip.ToFormFile(zip), BackupSection.Cards);
+
+        Assert.Equal(1, response.Cards);
+        var groups = host.Fsql.Select<CardGroupEntity>()
+            .OrderBy(g => new { g.SortOrder, g.Id }).ToList();
+        Assert.Equal(["g-default", "g-other"], groups.Select(g => g.Uuid).ToArray());
+        Assert.Equal("g-default",
+            host.Fsql.Select<CardEntity>().Where(c => c.Uuid == "old-card").First().GroupUuid);
+    }
+
     private static async Task<byte[]> ExportAsync(
         TestHost host, BackupSection sections)
     {

@@ -176,6 +176,7 @@ public static class ServiceCollectionExtensions
         services.AddAuthJsonContext();
 
         services.AddScoped<CardService>();
+        services.AddScoped<CardGroupService>();
         services.AddCardJsonContext();
 
         services.AddScoped<ImageService>();
